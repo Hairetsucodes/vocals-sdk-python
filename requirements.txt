@@ -1,0 +1,20 @@
+# Core async networking
+aiohttp>=3.8.0
+websockets>=11.0.0
+
+# Audio processing
+sounddevice>=0.4.6
+numpy>=1.21.0
+
+# JWT tokens
+PyJWT>=2.8.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Additional utilities
+typing-extensions>=4.0.0 
+
+# Audio input
+pyaudio>=0.2.11
+soundfile>=0.12.1
