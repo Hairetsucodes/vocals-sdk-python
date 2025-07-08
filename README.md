@@ -27,25 +27,21 @@ pip install vocals-sdk-python
 
 ### Additional Dependencies
 
-The SDK will automatically install required dependencies, but you may need to install system-level audio libraries:
+The SDK automatically installs all required Python dependencies including `pyaudio`, `sounddevice`, `numpy`, `websockets`, and others.
 
-**macOS:**
-
-```bash
-# Usually pre-installed with Xcode Command Line Tools
-```
+On some Linux systems, you may need to install system-level audio libraries:
 
 **Ubuntu/Debian:**
 
 ```bash
-sudo apt-get install python3-pyaudio portaudio19-dev
+sudo apt-get install portaudio19-dev
 ```
 
-**Windows:**
+**Other Linux distributions:**
 
 ```bash
-# PyAudio wheels are available for Windows
-pip install pyaudio
+# Install portaudio development headers using your package manager
+# For example, on CentOS/RHEL: sudo yum install portaudio-devel
 ```
 
 ## Quick Start
@@ -406,23 +402,18 @@ async def main():
 
 ### Common Issues
 
-1. **"Module 'pyaudio' not found"**
-
-   - Install pyaudio: `pip install pyaudio`
-   - On Linux: `sudo apt-get install python3-pyaudio portaudio19-dev`
-
-2. **"API key not found"**
+1. **"API key not found"**
 
    - Set environment variable: `export VOCALS_DEV_API_KEY="your_key"`
    - Or create `.env` file with the key
 
-3. **"Connection failed"**
+2. **"Connection failed"**
 
    - Check your internet connection
    - Verify API key is valid
    - Check WebSocket endpoint is accessible
 
-4. **"No audio input detected"**
+3. **"No audio input detected"**
    - Check microphone permissions
    - Verify microphone is working
    - Adjust `amplitude_threshold` parameter
