@@ -434,15 +434,27 @@ def list_audio_devices():
 
         input_devices = []
         for i, device in enumerate(devices):
-            max_input_channels = device.get("max_input_channels", 0)
+            # sounddevice returns a DeviceList of dictionaries
+            if isinstance(device, dict):
+                max_input_channels = device.get("max_input_channels", 0)
+                device_name = device.get("name", "Unknown")
+                sample_rate = device.get("default_samplerate", 44100)
+                hostapi = device.get("hostapi", 0)
+            else:
+                # Fallback for unexpected types
+                max_input_channels = 0
+                device_name = str(device)
+                sample_rate = 44100
+                hostapi = 0
+
             if max_input_channels > 0:
                 input_devices.append(
                     {
                         "id": i,
-                        "name": device.get("name", "Unknown"),
+                        "name": device_name,
                         "channels": max_input_channels,
-                        "sample_rate": device.get("default_samplerate", 44100),
-                        "hostapi": device.get("hostapi", 0),
+                        "sample_rate": sample_rate,
+                        "hostapi": hostapi,
                         "is_default": _is_default_input_device(i, sd),
                     }
                 )
@@ -559,8 +571,15 @@ def validate_audio_device(device_id: int):
         if device_id >= len(devices):
             return False, f"Device ID {device_id} not found"
 
-        device = devices[device_id]
-        if device.get("max_input_channels", 0) == 0:
+        device = devices[device_id]  # type: ignore
+
+        # Handle device as dictionary
+        if isinstance(device, dict):
+            max_input_channels = device.get("max_input_channels", 0)
+        else:
+            max_input_channels = 0
+
+        if max_input_channels == 0:
             return False, f"Device {device_id} has no input channels"
 
         return True, f"Device {device_id} is valid"
@@ -578,21 +597,42 @@ def get_audio_device_info(device_id: int):
         if device_id >= len(devices):
             return None
 
-        device = devices[device_id]
+        device = devices[device_id]  # type: ignore
+
+        # Handle device as dictionary
+        if isinstance(device, dict):
+            device_name = device.get("name", "Unknown")
+            hostapi = device.get("hostapi", 0)
+            max_input_channels = device.get("max_input_channels", 0)
+            max_output_channels = device.get("max_output_channels", 0)
+            default_low_input_latency = device.get("default_low_input_latency", 0.0)
+            default_low_output_latency = device.get("default_low_output_latency", 0.0)
+            default_high_input_latency = device.get("default_high_input_latency", 0.0)
+            default_high_output_latency = device.get("default_high_output_latency", 0.0)
+            default_samplerate = device.get("default_samplerate", 44100)
+        else:
+            # Fallback for unexpected types
+            device_name = str(device)
+            hostapi = 0
+            max_input_channels = 0
+            max_output_channels = 0
+            default_low_input_latency = 0.0
+            default_low_output_latency = 0.0
+            default_high_input_latency = 0.0
+            default_high_output_latency = 0.0
+            default_samplerate = 44100
 
         return {
             "id": device_id,
-            "name": device.get("name", "Unknown"),
-            "hostapi": device.get("hostapi", 0),
-            "max_input_channels": device.get("max_input_channels", 0),
-            "max_output_channels": device.get("max_output_channels", 0),
-            "default_low_input_latency": device.get("default_low_input_latency", 0.0),
-            "default_low_output_latency": device.get("default_low_output_latency", 0.0),
-            "default_high_input_latency": device.get("default_high_input_latency", 0.0),
-            "default_high_output_latency": device.get(
-                "default_high_output_latency", 0.0
-            ),
-            "default_samplerate": device.get("default_samplerate", 44100),
+            "name": device_name,
+            "hostapi": hostapi,
+            "max_input_channels": max_input_channels,
+            "max_output_channels": max_output_channels,
+            "default_low_input_latency": default_low_input_latency,
+            "default_low_output_latency": default_low_output_latency,
+            "default_high_input_latency": default_high_input_latency,
+            "default_high_output_latency": default_high_output_latency,
+            "default_samplerate": default_samplerate,
             "is_default_input": _is_default_input_device(device_id, sd),
             "is_default_output": _is_default_output_device(device_id, sd),
         }

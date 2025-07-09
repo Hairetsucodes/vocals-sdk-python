@@ -9,7 +9,7 @@ import sys
 import os
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Union
 
 try:
     import click
@@ -228,7 +228,7 @@ def devices():
             for device in devices:
                 print(f"ID {device['id']}: {device['name']}")
                 print(f"  Input channels: {device['channels']}")
-                print(f"  Sample rate: {device.get('sample_rate', 'Unknown')}")
+                print(f"  Sample rate: {device['sample_rate']}")
                 print()
         else:
             print("No audio input devices found")
@@ -309,18 +309,31 @@ def list_audio_devices():
         import sounddevice as sd
 
         devices = sd.query_devices()
-        result = []
+        result: List[Dict[str, Any]] = []
+
         for i, device in enumerate(devices):
-            max_input_channels = device.get("max_input_channels", 0)
+            # sounddevice returns a DeviceList of dictionaries
+            if isinstance(device, dict):
+                max_input_channels = device.get("max_input_channels", 0)
+                device_name = device.get("name", "Unknown")
+                sample_rate = device.get("default_samplerate", 44100)
+            else:
+                # Fallback for unexpected types
+                max_input_channels = 0
+                device_name = str(device)
+                sample_rate = 44100
+
+            # Only include devices with input channels
             if max_input_channels > 0:
                 result.append(
                     {
                         "id": i,
-                        "name": device.get("name", "Unknown"),
-                        "channels": max_input_channels,
-                        "sample_rate": device.get("default_samplerate", "Unknown"),
+                        "name": str(device_name),
+                        "channels": int(max_input_channels),
+                        "sample_rate": float(sample_rate),
                     }
                 )
+
         return result
     except ImportError:
         raise Exception("sounddevice not installed")
