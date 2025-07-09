@@ -362,9 +362,9 @@ class VocalsSDKTester:
     async def test_sdk_creation(self) -> bool:
         """Test SDK creation and basic functionality"""
         try:
-            from .client import create_vocals_sdk
+            from .client import create_vocals
 
-            sdk = create_vocals_sdk()
+            sdk = create_vocals()
 
             # Test basic properties
             if not hasattr(sdk, "__getitem__"):
@@ -409,10 +409,10 @@ class VocalsSDKTester:
     async def test_message_handling(self) -> bool:
         """Test message handling system"""
         try:
-            from .client import create_vocals_sdk
+            from .client import create_vocals
             from .types import WebSocketResponse
 
-            sdk = create_vocals_sdk()
+            sdk = create_vocals()
 
             # Test message handler registration
             received_messages = []

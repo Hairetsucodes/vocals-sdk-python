@@ -16,8 +16,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import Vocals SDK with new utilities
-from vocals_sdk import (
-    create_vocals_sdk,
+from vocals import (
+    create_vocals,
     get_default_config,
     AudioConfig,
     create_microphone_stats_tracker,
@@ -51,7 +51,7 @@ async def main():
     sdk = None
     try:
         # Set logging to WARNING level for cleaner output
-        logging.getLogger("vocals_sdk").setLevel(logging.WARNING)
+        logging.getLogger("vocals").setLevel(logging.WARNING)
         logging.getLogger("websockets").setLevel(logging.WARNING)
 
         logger.info("🎤 Starting Enhanced Vocals SDK Microphone Streaming Example")
@@ -64,7 +64,7 @@ async def main():
         audio_config = AudioConfig(sample_rate=24000, channels=1, format="pcm_f32le")
 
         # Create SDK instance
-        sdk = create_vocals_sdk(config, audio_config)
+        sdk = create_vocals(config, audio_config)
 
         try:
             print("\n" + "=" * 60)
@@ -169,7 +169,7 @@ async def conversation_tracking_example():
         logger.info("📜 Starting Conversation Tracking Example")
 
         # Create SDK
-        sdk = create_vocals_sdk()
+        sdk = create_vocals()
 
         # Create conversation tracker and stats tracker
         conversation_tracker = create_conversation_tracker()
@@ -248,7 +248,7 @@ async def minimal_example():
         logger.info("🎤 Starting Minimal Example")
 
         # Create SDK and stream microphone in one go
-        sdk = create_vocals_sdk()
+        sdk = create_vocals()
         await sdk["stream_microphone"](duration=10.0)
 
         logger.info("🎉 Minimal example completed!")
@@ -266,7 +266,7 @@ async def infinite_streaming_example():
         logger.info("🎤 Starting Infinite Streaming Example")
 
         # Create SDK
-        sdk = create_vocals_sdk()
+        sdk = create_vocals()
 
         # Create a task to handle the infinite streaming
         async def stream_task():

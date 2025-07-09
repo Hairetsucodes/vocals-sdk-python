@@ -19,7 +19,7 @@ except ImportError:
 
 from .config import VocalsConfig, get_default_config
 from .audio_processor import AudioConfig
-from .client import create_vocals_sdk
+from .client import create_vocals
 
 
 @click.group()
@@ -46,7 +46,7 @@ def demo(duration, verbose, stats, device):
         if verbose:
             logging.basicConfig(level=logging.INFO)
         else:
-            logging.getLogger("vocals_sdk").setLevel(logging.WARNING)
+            logging.getLogger("vocals").setLevel(logging.WARNING)
 
         try:
             # Create configuration
@@ -61,7 +61,7 @@ def demo(duration, verbose, stats, device):
                 # This would need to be implemented in audio_processor
 
             # Create SDK
-            sdk = create_vocals_sdk(config, audio_config)
+            sdk = create_vocals(config, audio_config)
 
             print(f"Starting microphone streaming for {duration}s...")
             print("Speak into your microphone!")
@@ -192,7 +192,7 @@ def test(verbose):
         if verbose:
             logging.basicConfig(level=logging.DEBUG)
         else:
-            logging.getLogger("vocals_sdk").setLevel(logging.WARNING)
+            logging.getLogger("vocals").setLevel(logging.WARNING)
 
         tester = VocalsSDKTester()
 
@@ -376,7 +376,7 @@ A simple voice assistant using Vocals SDK
 
 import asyncio
 import logging
-from vocals_sdk import create_vocals_sdk
+from vocals import create_vocals
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -386,7 +386,7 @@ async def voice_assistant():
     """Main voice assistant function"""
     
     # Create SDK instance
-    sdk = create_vocals_sdk()
+    sdk = create_vocals()
     
     # Custom message handlers
     def on_transcription(message):
@@ -438,7 +438,7 @@ Process audio files with Vocals SDK
 import asyncio
 import sys
 from pathlib import Path
-from vocals_sdk import create_vocals_sdk
+from vocals import create_vocals
 
 async def process_audio_file(file_path: str):
     """Process an audio file and get AI responses"""
@@ -449,7 +449,7 @@ async def process_audio_file(file_path: str):
         return
     
     # Create SDK instance
-    sdk = create_vocals_sdk()
+    sdk = create_vocals()
     
     # Handler for responses
     def on_response(message):
@@ -498,8 +498,8 @@ Track and analyze conversation with AI
 """
 
 import asyncio
-from vocals_sdk import (
-    create_vocals_sdk,
+from vocals import (
+    create_vocals,
     create_conversation_tracker,
     create_enhanced_message_handler
 )
@@ -508,7 +508,7 @@ async def conversation_session():
     """Run a conversation session with tracking"""
     
     # Create SDK and tracker
-    sdk = create_vocals_sdk()
+    sdk = create_vocals()
     tracker = create_conversation_tracker()
     
     # Enhanced message handler
@@ -633,9 +633,9 @@ class VocalsSDKTester:
     async def test_connection(self):
         """Test WebSocket connection"""
         try:
-            from .client import create_vocals_sdk
+            from .client import create_vocals
 
-            sdk = create_vocals_sdk()
+            sdk = create_vocals()
             await sdk["connect"]()
             connected = sdk["get_is_connected"]()
             await sdk["disconnect"]()
@@ -651,9 +651,9 @@ class VocalsSDKTester:
     async def test_audio_recording(self):
         """Test audio recording functionality"""
         try:
-            from .client import create_vocals_sdk
+            from .client import create_vocals
 
-            sdk = create_vocals_sdk()
+            sdk = create_vocals()
             await sdk["start_recording"]()
             await asyncio.sleep(0.5)
             recording = sdk["get_is_recording"]()

@@ -1,7 +1,7 @@
 include README.md
 include requirements.txt
 include LICENSE
-recursive-include vocals_sdk *.py
+recursive-include vocals *.py
 recursive-include examples *.py *.sh
 global-exclude *.pyc
 global-exclude __pycache__

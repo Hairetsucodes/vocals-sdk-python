@@ -195,7 +195,7 @@ main() {
     echo "===================================="
     
     # Check if running from correct directory
-    if [ ! -f "vocals_sdk/__init__.py" ]; then
+    if [ ! -f "vocals/__init__.py" ]; then
         print_error "Please run this script from the project root directory"
         exit 1
     fi

@@ -27,7 +27,7 @@ from .audio_processor import create_audio_processor, AudioConfig
 logger = logging.getLogger(__name__)
 
 
-def create_vocals_sdk(
+def create_vocals(
     config: Optional[VocalsConfig] = None,
     audio_config: Optional[AudioConfig] = None,
     user_id: Optional[str] = None,

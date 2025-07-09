@@ -46,11 +46,11 @@ setup(
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "vocals=vocals_sdk.cli:cli",
-            "vocals-demo=vocals_sdk.cli:demo",
-            "vocals-setup=vocals_sdk.cli:setup",
-            "vocals-test=vocals_sdk.cli:test",
-            "vocals-devices=vocals_sdk.cli:devices",
+            "vocals=vocals.cli:cli",
+            "vocals-demo=vocals.cli:demo",
+            "vocals-setup=vocals.cli:setup",
+            "vocals-test=vocals.cli:test",
+            "vocals-devices=vocals.cli:devices",
         ],
     },
     classifiers=[

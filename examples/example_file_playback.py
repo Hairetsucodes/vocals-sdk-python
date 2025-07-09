@@ -16,8 +16,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import Vocals SDK with new utilities
-from vocals_sdk import (
-    create_vocals_sdk,
+from vocals import (
+    create_vocals,
     get_default_config,
     AudioConfig,
     create_default_message_handler,
@@ -43,7 +43,7 @@ async def main():
         audio_config = AudioConfig(sample_rate=24000, channels=1, format="pcm_f32le")
 
         # Create SDK instance
-        sdk = create_vocals_sdk(config, audio_config)
+        sdk = create_vocals(config, audio_config)
 
         # Set up enhanced message handler to beautifully display text
         remove_message_handler = sdk["on_message"](
@@ -109,7 +109,7 @@ async def conversation_tracking_example():
         audio_config = AudioConfig(sample_rate=24000, channels=1, format="pcm_f32le")
 
         # Create SDK instance
-        sdk = create_vocals_sdk(config, audio_config)
+        sdk = create_vocals(config, audio_config)
 
         # Create conversation tracker
         conversation_tracker = create_conversation_tracker()
@@ -226,7 +226,7 @@ async def minimal_example():
         logger.info("🎵 Starting Minimal Example")
 
         # Create SDK and stream file in one go
-        sdk = create_vocals_sdk()
+        sdk = create_vocals()
         await sdk["stream_audio_file"](str(AUDIO_FILE))
 
         logger.info("🎉 Minimal example completed!")

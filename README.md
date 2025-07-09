@@ -86,11 +86,11 @@ VOCALS_DEV_API_KEY=your_api_key_here
 
 ```python
 import asyncio
-from vocals_sdk import create_vocals_sdk
+from vocals import create_vocals
 
 async def main():
     # Create SDK instance
-    sdk = create_vocals_sdk()
+    sdk = create_vocals()
 
     # Stream microphone for 10 seconds
     await sdk["stream_microphone"](duration=10.0)
@@ -103,11 +103,11 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from vocals_sdk import create_vocals_sdk
+from vocals import create_vocals
 
 async def main():
     # Create SDK instance
-    sdk = create_vocals_sdk()
+    sdk = create_vocals()
 
     # Stream audio file
     await sdk["stream_audio_file"]("path/to/your/audio.wav")
@@ -123,8 +123,8 @@ if __name__ == "__main__":
 ```python
 import asyncio
 import logging
-from vocals_sdk import (
-    create_vocals_sdk,
+from vocals import (
+    create_vocals,
     get_default_config,
     AudioConfig,
     create_enhanced_message_handler,
@@ -134,14 +134,14 @@ from vocals_sdk import (
 
 async def main():
     # Configure logging for cleaner output
-    logging.getLogger("vocals_sdk").setLevel(logging.WARNING)
+    logging.getLogger("vocals").setLevel(logging.WARNING)
 
     # Create configuration
     config = get_default_config()
     audio_config = AudioConfig(sample_rate=24000, channels=1, format="pcm_f32le")
 
     # Create SDK instance
-    sdk = create_vocals_sdk(config, audio_config)
+    sdk = create_vocals(config, audio_config)
 
     # Set up enhanced message handler for beautiful text display
     remove_message_handler = sdk["on_message"](
@@ -198,15 +198,15 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from vocals_sdk import (
-    create_vocals_sdk,
+from vocals import (
+    create_vocals,
     create_conversation_tracker,
     create_enhanced_message_handler,
 )
 
 async def main():
     # Create SDK and conversation tracker
-    sdk = create_vocals_sdk()
+    sdk = create_vocals()
     conversation_tracker = create_conversation_tracker()
 
     # Enhanced message handler with conversation tracking
@@ -262,7 +262,7 @@ if __name__ == "__main__":
 ```python
 import asyncio
 import signal
-from vocals_sdk import create_vocals_sdk
+from vocals import create_vocals
 
 # Global shutdown event
 shutdown_event = asyncio.Event()
@@ -281,7 +281,7 @@ async def main():
     setup_signal_handlers()
 
     # Create SDK
-    sdk = create_vocals_sdk()
+    sdk = create_vocals()
 
     # Create streaming task
     async def stream_task():
@@ -332,7 +332,7 @@ export VOCALS_WS_ENDPOINT="ws://your-custom-endpoint.com/v1/stream/conversation"
 ### Audio Configuration
 
 ```python
-from vocals_sdk import AudioConfig
+from vocals import AudioConfig
 
 # Create custom audio configuration
 audio_config = AudioConfig(
@@ -343,13 +343,13 @@ audio_config = AudioConfig(
 )
 
 # Use with SDK
-sdk = create_vocals_sdk(audio_config=audio_config)
+sdk = create_vocals(audio_config=audio_config)
 ```
 
 ### SDK Configuration
 
 ```python
-from vocals_sdk import get_default_config
+from vocals import get_default_config
 
 # Get default configuration
 config = get_default_config()
@@ -361,14 +361,14 @@ config.auto_connect = True
 config.token_refresh_buffer = 60.0
 
 # Use with SDK
-sdk = create_vocals_sdk(config=config)
+sdk = create_vocals(config=config)
 ```
 
 ## API Reference
 
 ### Core Functions
 
-- `create_vocals_sdk(config?, audio_config?, user_id?)` - Create SDK instance
+- `create_vocals(config?, audio_config?, user_id?)` - Create SDK instance
 - `get_default_config()` - Get default configuration
 - `AudioConfig(...)` - Audio configuration class
 
@@ -450,11 +450,11 @@ VOCALS_DEBUG_LEVEL=DEBUG vocals demo
 The SDK provides comprehensive error handling:
 
 ```python
-from vocals_sdk import create_vocals_sdk, VocalsError
+from vocals import create_vocals, VocalsError
 
 async def main():
     try:
-        sdk = create_vocals_sdk()
+        sdk = create_vocals()
         await sdk["stream_microphone"](duration=10.0)
     except VocalsError as e:
         print(f"Vocals SDK error: {e}")
@@ -497,7 +497,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # Or for specific modules
-logging.getLogger("vocals_sdk").setLevel(logging.DEBUG)
+logging.getLogger("vocals").setLevel(logging.DEBUG)
 ```
 
 ## Examples

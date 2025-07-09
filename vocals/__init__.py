@@ -8,7 +8,7 @@ following functional composition patterns while maintaining backward compatibili
 __version__ = "1.0.4"
 
 # Primary functional interfaces
-from .client import create_vocals_sdk
+from .client import create_vocals
 from .websocket_client import create_websocket_client
 from .audio_processor import create_audio_processor
 from .token_manager import create_token_manager
@@ -93,7 +93,7 @@ from .audio_processor import AudioConfig
 
 __all__ = [
     # Primary functional interfaces
-    "create_vocals_sdk",
+    "create_vocals",
     "create_websocket_client",
     "create_audio_processor",
     "create_token_manager",
