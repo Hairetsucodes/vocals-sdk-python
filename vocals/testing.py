@@ -363,8 +363,12 @@ class VocalsSDKTester:
         """Test SDK creation and basic functionality"""
         try:
             from .client import create_vocals
+            from .config import get_default_config
 
-            sdk = create_vocals()
+            # Create config with auto_connect disabled to avoid double connection
+            config = get_default_config()
+            config.auto_connect = False
+            sdk = create_vocals(config)
 
             # Test basic properties
             if not hasattr(sdk, "__getitem__"):
@@ -411,8 +415,12 @@ class VocalsSDKTester:
         try:
             from .client import create_vocals
             from .types import WebSocketResponse
+            from .config import get_default_config
 
-            sdk = create_vocals()
+            # Create config with auto_connect disabled to avoid double connection
+            config = get_default_config()
+            config.auto_connect = False
+            sdk = create_vocals(config)
 
             # Test message handler registration
             received_messages = []

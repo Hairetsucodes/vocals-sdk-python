@@ -49,8 +49,9 @@ def demo(duration, verbose, stats, device):
             logging.getLogger("vocals").setLevel(logging.WARNING)
 
         try:
-            # Create configuration
+            # Create configuration with auto_connect disabled to avoid double connection
             config = get_default_config()
+            config.auto_connect = False  # Let stream_microphone handle connection
             audio_config = AudioConfig(
                 sample_rate=24000, channels=1, format="pcm_f32le"
             )
@@ -385,8 +386,11 @@ logger = logging.getLogger(__name__)
 async def voice_assistant():
     """Main voice assistant function"""
     
-    # Create SDK instance
-    sdk = create_vocals()
+    # Create SDK instance with auto_connect disabled to avoid double connection
+    from vocals.config import get_default_config
+    config = get_default_config()
+    config.auto_connect = False  # Let stream_microphone handle connection
+    sdk = create_vocals(config)
     
     # Custom message handlers
     def on_transcription(message):
@@ -448,8 +452,11 @@ async def process_audio_file(file_path: str):
         print(f"❌ File not found: {file_path}")
         return
     
-    # Create SDK instance
-    sdk = create_vocals()
+    # Create SDK instance with auto_connect disabled to avoid double connection
+    from vocals.config import get_default_config
+    config = get_default_config()
+    config.auto_connect = False  # Let stream_audio_file handle connection
+    sdk = create_vocals(config)
     
     # Handler for responses
     def on_response(message):
@@ -507,8 +514,11 @@ from vocals import (
 async def conversation_session():
     """Run a conversation session with tracking"""
     
-    # Create SDK and tracker
-    sdk = create_vocals()
+    # Create SDK and tracker with auto_connect disabled to avoid double connection
+    from vocals.config import get_default_config
+    config = get_default_config()
+    config.auto_connect = False  # Let stream_microphone handle connection
+    sdk = create_vocals(config)
     tracker = create_conversation_tracker()
     
     # Enhanced message handler
