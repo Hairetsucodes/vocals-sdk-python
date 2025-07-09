@@ -16,7 +16,27 @@ A Python SDK for voice processing and real-time audio communication with AI assi
 ## Installation
 
 ```bash
-pip install vocals-sdk-python
+pip install vocals
+```
+
+### Quick Setup
+
+After installation, use the built-in setup wizard to configure your environment:
+
+```bash
+vocals-setup
+```
+
+Or test your installation:
+
+```bash
+vocals-test
+```
+
+Run a quick demo:
+
+```bash
+vocals-demo
 ```
 
 ### System Requirements
@@ -376,6 +396,54 @@ sdk = create_vocals_sdk(config=config)
 - `create_microphone_stats_tracker()` - Track microphone session statistics
 - `create_default_connection_handler()` - Default connection handler
 - `create_default_error_handler()` - Default error handler
+
+## CLI Tools
+
+The SDK includes powerful command-line tools for setup, testing, and debugging:
+
+### Setup & Configuration
+
+```bash
+# Interactive setup wizard
+vocals-setup
+
+# List available audio devices
+vocals-devices
+
+# Test a specific audio device
+vocals test-device 1 --duration 5
+
+# Generate diagnostic report
+vocals diagnose
+```
+
+### Development Tools
+
+```bash
+# Run all tests
+vocals-test
+
+# Run a demo session
+vocals-demo --duration 30 --verbose
+
+# Create project templates
+vocals create-template voice_assistant
+vocals create-template file_processor
+vocals create-template conversation_tracker
+```
+
+### Advanced Features
+
+```bash
+# Performance monitoring
+vocals-demo --duration 60 --stats
+
+# Custom audio device
+vocals-demo --device 2
+
+# Debug mode
+VOCALS_DEBUG_LEVEL=DEBUG vocals-demo
+```
 
 ## Error Handling
 

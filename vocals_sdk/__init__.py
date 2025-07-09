@@ -5,7 +5,7 @@ A Python SDK for voice processing and real-time audio communication,
 following functional composition patterns while maintaining backward compatibility.
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.2"
 
 # Primary functional interfaces
 from .client import create_vocals_sdk
@@ -27,6 +27,30 @@ from .utils import (
     create_microphone_message_handler,
     create_microphone_connection_handler,
     create_microphone_audio_data_handler,
+    # Performance monitoring
+    create_performance_monitor,
+    create_realtime_visualizer,
+)
+
+# Audio device management
+from .audio_processor import (
+    list_audio_devices,
+    get_default_audio_device,
+    test_audio_device,
+    validate_audio_device,
+    get_audio_device_info,
+    print_audio_devices,
+    create_audio_device_selector,
+)
+
+# Testing framework
+from .testing import (
+    VocalsSDKTester,
+    create_test_suite,
+    run_quick_test,
+    run_full_test_suite,
+    benchmark_performance,
+    generate_test_audio_data,
 )
 
 # WSToken functionality
@@ -43,7 +67,12 @@ from .wstoken import (
 )
 
 # Configuration and types
-from .config import VocalsConfig, get_default_config
+from .config import (
+    VocalsConfig,
+    get_default_config,
+    validate_environment,
+    create_config_wizard,
+)
 from .types import (
     VocalsError,
     VocalsSDKException,
@@ -81,6 +110,24 @@ __all__ = [
     "create_microphone_message_handler",
     "create_microphone_connection_handler",
     "create_microphone_audio_data_handler",
+    # Performance monitoring
+    "create_performance_monitor",
+    "create_realtime_visualizer",
+    # Audio device management
+    "list_audio_devices",
+    "get_default_audio_device",
+    "test_audio_device",
+    "validate_audio_device",
+    "get_audio_device_info",
+    "print_audio_devices",
+    "create_audio_device_selector",
+    # Testing framework
+    "VocalsSDKTester",
+    "create_test_suite",
+    "run_quick_test",
+    "run_full_test_suite",
+    "benchmark_performance",
+    "generate_test_audio_data",
     # WSToken functionality
     "generate_ws_token",
     "generate_ws_token_with_user_id",
@@ -95,6 +142,8 @@ __all__ = [
     # Configuration and types
     "VocalsConfig",
     "get_default_config",
+    "validate_environment",
+    "create_config_wizard",
     "AudioConfig",
     "VocalsError",
     "VocalsSDKException",

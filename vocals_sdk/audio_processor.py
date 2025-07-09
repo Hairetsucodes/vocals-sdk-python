@@ -392,3 +392,277 @@ def create_audio_processor(config: Optional[AudioConfig] = None):
         "get_current_segment": get_current_segment,
         "get_current_amplitude": get_current_amplitude,
     }
+
+
+# Audio device management functions
+def _is_default_input_device(device_id: int, sd_module) -> bool:
+    """Check if a device is the default input device"""
+    try:
+        default_device = sd_module.default.device
+        if (
+            default_device
+            and isinstance(default_device, (list, tuple))
+            and len(default_device) > 0
+        ):
+            return device_id == default_device[0]
+        return False
+    except Exception:
+        return False
+
+
+def _is_default_output_device(device_id: int, sd_module) -> bool:
+    """Check if a device is the default output device"""
+    try:
+        default_device = sd_module.default.device
+        if (
+            default_device
+            and isinstance(default_device, (list, tuple))
+            and len(default_device) > 1
+        ):
+            return device_id == default_device[1]
+        return False
+    except Exception:
+        return False
+
+
+def list_audio_devices():
+    """List available audio devices for user selection"""
+    try:
+        import sounddevice as sd
+
+        devices = sd.query_devices()
+
+        input_devices = []
+        for i, device in enumerate(devices):
+            max_input_channels = device.get("max_input_channels", 0)
+            if max_input_channels > 0:
+                input_devices.append(
+                    {
+                        "id": i,
+                        "name": device.get("name", "Unknown"),
+                        "channels": max_input_channels,
+                        "sample_rate": device.get("default_samplerate", 44100),
+                        "hostapi": device.get("hostapi", 0),
+                        "is_default": _is_default_input_device(i, sd),
+                    }
+                )
+
+        return input_devices
+    except ImportError:
+        logger.error("sounddevice not installed")
+        return []
+    except Exception as e:
+        logger.error(f"Error listing audio devices: {e}")
+        return []
+
+
+def get_default_audio_device():
+    """Get the default audio input device"""
+    try:
+        import sounddevice as sd
+
+        default_device = sd.default.device
+        if (
+            default_device
+            and isinstance(default_device, (list, tuple))
+            and len(default_device) > 0
+            and default_device[0] is not None
+        ):
+            return default_device[0]
+        else:
+            # Find first available input device
+            devices = list_audio_devices()
+            if devices:
+                return devices[0]["id"]
+            return None
+    except Exception as e:
+        logger.error(f"Error getting default audio device: {e}")
+        return None
+
+
+def test_audio_device(
+    device_id: Optional[int] = None, duration: float = 5.0, verbose: bool = True
+):
+    """Test an audio device with visual feedback"""
+    try:
+        import sounddevice as sd
+        import numpy as np
+        import time
+
+        if device_id is None:
+            device_id = get_default_audio_device()
+
+        if device_id is None:
+            raise Exception("No audio device available")
+
+        if verbose:
+            print(f"Testing audio device {device_id} for {duration} seconds...")
+            print("Speak into your microphone!")
+
+        # Test variables
+        max_volume = 0.0
+        volume_readings = []
+
+        def callback(indata, frames, time, status):
+            nonlocal max_volume
+            if status:
+                if verbose:
+                    print(f"Audio status: {status}")
+
+            volume = np.sqrt(np.mean(indata**2))
+            max_volume = max(max_volume, volume)
+            volume_readings.append(volume)
+
+            if verbose:
+                # Visual volume meter
+                bar_length = int(volume * 50)
+                bar = "█" * bar_length + "░" * (50 - bar_length)
+                print(f"\rVolume: [{bar}] {volume:.3f}", end="", flush=True)
+
+        # Start recording
+        with sd.InputStream(
+            callback=callback,
+            device=device_id,
+            channels=1,
+            samplerate=44100,
+            blocksize=1024,
+        ):
+            time.sleep(duration)
+
+        if verbose:
+            print(f"\n✅ Device test completed")
+            print(f"Max volume: {max_volume:.3f}")
+            print(f"Average volume: {np.mean(volume_readings):.3f}")
+
+        return {
+            "device_id": device_id,
+            "max_volume": max_volume,
+            "average_volume": np.mean(volume_readings) if volume_readings else 0.0,
+            "readings_count": len(volume_readings),
+            "success": True,
+        }
+
+    except Exception as e:
+        error_msg = f"Error testing audio device {device_id}: {e}"
+        if verbose:
+            print(f"\n❌ {error_msg}")
+        logger.error(error_msg)
+        return {"device_id": device_id, "success": False, "error": str(e)}
+
+
+def validate_audio_device(device_id: int):
+    """Validate that an audio device exists and can be used"""
+    try:
+        import sounddevice as sd
+
+        devices = sd.query_devices()
+        if device_id >= len(devices):
+            return False, f"Device ID {device_id} not found"
+
+        device = devices[device_id]
+        if device.get("max_input_channels", 0) == 0:
+            return False, f"Device {device_id} has no input channels"
+
+        return True, f"Device {device_id} is valid"
+
+    except Exception as e:
+        return False, f"Error validating device {device_id}: {e}"
+
+
+def get_audio_device_info(device_id: int):
+    """Get detailed information about an audio device"""
+    try:
+        import sounddevice as sd
+
+        devices = sd.query_devices()
+        if device_id >= len(devices):
+            return None
+
+        device = devices[device_id]
+
+        return {
+            "id": device_id,
+            "name": device.get("name", "Unknown"),
+            "hostapi": device.get("hostapi", 0),
+            "max_input_channels": device.get("max_input_channels", 0),
+            "max_output_channels": device.get("max_output_channels", 0),
+            "default_low_input_latency": device.get("default_low_input_latency", 0.0),
+            "default_low_output_latency": device.get("default_low_output_latency", 0.0),
+            "default_high_input_latency": device.get("default_high_input_latency", 0.0),
+            "default_high_output_latency": device.get(
+                "default_high_output_latency", 0.0
+            ),
+            "default_samplerate": device.get("default_samplerate", 44100),
+            "is_default_input": _is_default_input_device(device_id, sd),
+            "is_default_output": _is_default_output_device(device_id, sd),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting device info for {device_id}: {e}")
+        return None
+
+
+def print_audio_devices():
+    """Print a formatted list of available audio devices"""
+    devices = list_audio_devices()
+
+    if not devices:
+        print("No audio input devices found")
+        return
+
+    print("🎧 Available Audio Input Devices:")
+    print("=" * 60)
+
+    for device in devices:
+        status = "⭐ DEFAULT" if device["is_default"] else ""
+        print(f"ID {device['id']}: {device['name']} {status}")
+        print(f"  Channels: {device['channels']}")
+        print(f"  Sample Rate: {device['sample_rate']} Hz")
+        print(f"  Host API: {device['hostapi']}")
+        print()
+
+
+def create_audio_device_selector():
+    """Interactive audio device selector"""
+    devices = list_audio_devices()
+
+    if not devices:
+        print("❌ No audio input devices found")
+        return None
+
+    print("🎧 Audio Device Selection")
+    print("=" * 40)
+
+    # Show devices
+    for device in devices:
+        status = " (DEFAULT)" if device["is_default"] else ""
+        print(f"{device['id']}: {device['name']}{status}")
+
+    print()
+
+    # Get user selection
+    while True:
+        try:
+            selection = input("Select device ID (or press Enter for default): ").strip()
+
+            if not selection:
+                # Use default device
+                default_device = get_default_audio_device()
+                if default_device is not None:
+                    return default_device
+                else:
+                    return devices[0]["id"]
+
+            device_id = int(selection)
+
+            # Validate selection
+            if any(d["id"] == device_id for d in devices):
+                return device_id
+            else:
+                print(f"❌ Invalid device ID: {device_id}")
+
+        except ValueError:
+            print("❌ Please enter a valid number")
+        except KeyboardInterrupt:
+            print("\n👋 Selection cancelled")
+            return None

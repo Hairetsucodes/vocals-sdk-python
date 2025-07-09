@@ -50,6 +50,9 @@ def create_vocals_sdk(
     config = config or get_default_config()
     audio_config = audio_config or AudioConfig()
 
+    # Setup logging based on configuration
+    config.setup_logging()
+
     # Create components using functional approach
     websocket_client = create_websocket_client(config, user_id)
     audio_processor = create_audio_processor(audio_config)

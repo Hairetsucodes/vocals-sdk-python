@@ -912,3 +912,260 @@ def create_microphone_audio_data_handler(
             logger.error(f"Error processing audio data: {e}")
 
     return handle_audio_data
+
+
+def create_performance_monitor(verbose: bool = True):
+    """
+    Create a performance monitor for tracking SDK metrics.
+
+    Args:
+        verbose: Whether to log periodic performance updates
+
+    Returns:
+        Dictionary with performance monitoring functions
+    """
+    import time
+
+    try:
+        import psutil
+
+        process = psutil.Process()
+        psutil_available = True
+    except ImportError:
+        psutil_available = False
+        logger.warning("psutil not available, performance monitoring limited")
+
+    stats = {
+        "start_time": time.time(),
+        "messages_received": 0,
+        "audio_chunks_processed": 0,
+        "transcriptions_received": 0,
+        "responses_received": 0,
+        "tts_segments_received": 0,
+        "errors": 0,
+        "memory_usage": [],
+        "cpu_usage": [],
+        "network_bytes_sent": 0,
+        "network_bytes_received": 0,
+        "connection_events": 0,
+        "reconnections": 0,
+        "last_report_time": time.time(),
+    }
+
+    def update_stats(metric: str, value: int = 1):
+        """Update a performance metric"""
+        stats[metric] += value
+
+        # Collect system metrics if available
+        if psutil_available:
+            try:
+                stats["memory_usage"].append(
+                    process.memory_info().rss / 1024 / 1024
+                )  # MB
+                stats["cpu_usage"].append(process.cpu_percent())
+
+                # Keep only last 1000 samples to avoid memory growth
+                if len(stats["memory_usage"]) > 1000:
+                    stats["memory_usage"] = stats["memory_usage"][-1000:]
+                    stats["cpu_usage"] = stats["cpu_usage"][-1000:]
+
+            except Exception as e:
+                logger.debug(f"Error collecting system metrics: {e}")
+
+        # Log periodic updates
+        current_time = time.time()
+        if (
+            verbose and current_time - stats["last_report_time"] > 30
+        ):  # Every 30 seconds
+            print_performance_stats()
+            stats["last_report_time"] = current_time
+
+    def print_performance_stats():
+        """Print current performance statistics"""
+        current_time = time.time()
+        duration = current_time - stats["start_time"]
+
+        print(f"\n📊 Performance Stats (Running for {duration:.1f}s):")
+        print(f"   Messages: {stats['messages_received']}")
+        print(f"   Audio chunks: {stats['audio_chunks_processed']}")
+        print(f"   Transcriptions: {stats['transcriptions_received']}")
+        print(f"   Responses: {stats['responses_received']}")
+        print(f"   TTS segments: {stats['tts_segments_received']}")
+        print(f"   Errors: {stats['errors']}")
+        print(f"   Reconnections: {stats['reconnections']}")
+
+        if psutil_available and stats["memory_usage"]:
+            avg_memory = sum(stats["memory_usage"]) / len(stats["memory_usage"])
+            max_memory = max(stats["memory_usage"])
+
+            if stats["cpu_usage"]:
+                avg_cpu = sum(stats["cpu_usage"]) / len(stats["cpu_usage"])
+                max_cpu = max(stats["cpu_usage"])
+                print(f"   Memory: {avg_memory:.1f}MB avg, {max_memory:.1f}MB max")
+                print(f"   CPU: {avg_cpu:.1f}% avg, {max_cpu:.1f}% max")
+
+    def create_message_handler():
+        """Create a message handler that tracks performance"""
+
+        def handle_message(message):
+            update_stats("messages_received")
+
+            if message.type == "transcription":
+                update_stats("transcriptions_received")
+            elif message.type == "llm_response":
+                update_stats("responses_received")
+            elif message.type == "tts_audio":
+                update_stats("tts_segments_received")
+
+        return handle_message
+
+    def create_audio_handler():
+        """Create an audio handler that tracks performance"""
+
+        def handle_audio(audio_data):
+            update_stats("audio_chunks_processed")
+
+        return handle_audio
+
+    def create_connection_handler():
+        """Create a connection handler that tracks performance"""
+
+        def handle_connection(state):
+            update_stats("connection_events")
+
+            if state == "RECONNECTING":
+                update_stats("reconnections")
+
+        return handle_connection
+
+    def create_error_handler():
+        """Create an error handler that tracks performance"""
+
+        def handle_error(error):
+            update_stats("errors")
+            if verbose:
+                logger.warning(f"Error tracked: {error}")
+
+        return handle_error
+
+    def get_stats():
+        """Get current performance statistics"""
+        current_time = time.time()
+        duration = current_time - stats["start_time"]
+
+        result = dict(stats)
+        result["duration"] = duration
+        result["messages_per_second"] = (
+            stats["messages_received"] / duration if duration > 0 else 0
+        )
+        result["audio_chunks_per_second"] = (
+            stats["audio_chunks_processed"] / duration if duration > 0 else 0
+        )
+
+        if psutil_available and stats["memory_usage"]:
+            result["avg_memory_mb"] = sum(stats["memory_usage"]) / len(
+                stats["memory_usage"]
+            )
+            result["max_memory_mb"] = max(stats["memory_usage"])
+
+            if stats["cpu_usage"]:
+                result["avg_cpu_percent"] = sum(stats["cpu_usage"]) / len(
+                    stats["cpu_usage"]
+                )
+                result["max_cpu_percent"] = max(stats["cpu_usage"])
+
+        return result
+
+    return {
+        "update": update_stats,
+        "print_stats": print_performance_stats,
+        "create_message_handler": create_message_handler,
+        "create_audio_handler": create_audio_handler,
+        "create_connection_handler": create_connection_handler,
+        "create_error_handler": create_error_handler,
+        "get_stats": get_stats,
+    }
+
+
+def create_realtime_visualizer(enable_plot: bool = True):
+    """
+    Create a real-time audio visualizer.
+
+    Args:
+        enable_plot: Whether to enable matplotlib plotting
+
+    Returns:
+        Audio handler function for visualization
+    """
+    from collections import deque
+
+    # Audio buffer for visualization
+    audio_buffer = deque(maxlen=1000)
+    amplitude_buffer = deque(maxlen=100)
+
+    if enable_plot:
+        try:
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            plt.ion()  # Turn on interactive mode
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6))
+
+            # Initialize plots
+            ax1.set_title("Real-time Audio Waveform")
+            ax1.set_ylabel("Amplitude")
+            ax1.set_ylim(-1, 1)
+
+            ax2.set_title("Volume Level")
+            ax2.set_ylabel("Volume")
+            ax2.set_ylim(0, 1)
+
+            (line1,) = ax1.plot([], [])
+            (line2,) = ax2.plot([], [])
+
+            matplotlib_available = True
+        except ImportError:
+            matplotlib_available = False
+            logger.warning("matplotlib not available, visualization disabled")
+    else:
+        matplotlib_available = False
+
+    def audio_handler(audio_data: List[float]):
+        """Handle audio data for visualization"""
+        if not audio_data:
+            return
+
+        # Add to buffer
+        audio_buffer.extend(audio_data)
+
+        # Calculate amplitude
+        amplitude = sum(abs(sample) for sample in audio_data) / len(audio_data)
+        amplitude_buffer.append(amplitude)
+
+        # Update plot if available
+        if matplotlib_available:
+            try:
+                # Update waveform
+                if len(audio_buffer) > 0:
+                    line1.set_data(range(len(audio_buffer)), list(audio_buffer))
+                    ax1.set_xlim(0, len(audio_buffer))
+
+                # Update volume
+                if len(amplitude_buffer) > 0:
+                    line2.set_data(range(len(amplitude_buffer)), list(amplitude_buffer))
+                    ax2.set_xlim(0, len(amplitude_buffer))
+
+                # Redraw
+                fig.canvas.draw()
+                fig.canvas.flush_events()
+
+            except Exception as e:
+                logger.debug(f"Visualization error: {e}")
+
+        # Simple text-based visualization
+        if not matplotlib_available:
+            bar_length = int(amplitude * 50)
+            bar = "█" * bar_length + "░" * (50 - bar_length)
+            print(f"\rVolume: [{bar}] {amplitude:.3f}", end="", flush=True)
+
+    return audio_handler
