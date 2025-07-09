@@ -5,7 +5,7 @@ A Python SDK for voice processing and real-time audio communication,
 following functional composition patterns while maintaining backward compatibility.
 """
 
-__version__ = "1.0.2"
+__version__ = "1.0.4"
 
 # Primary functional interfaces
 from .client import create_vocals_sdk

@@ -24,19 +24,19 @@ pip install vocals
 After installation, use the built-in setup wizard to configure your environment:
 
 ```bash
-vocals-setup
+vocals setup
 ```
 
 Or test your installation:
 
 ```bash
-vocals-test
+vocals test
 ```
 
 Run a quick demo:
 
 ```bash
-vocals-demo
+vocals demo
 ```
 
 ### System Requirements
@@ -405,10 +405,10 @@ The SDK includes powerful command-line tools for setup, testing, and debugging:
 
 ```bash
 # Interactive setup wizard
-vocals-setup
+vocals setup
 
 # List available audio devices
-vocals-devices
+vocals devices
 
 # Test a specific audio device
 vocals test-device 1 --duration 5
@@ -421,10 +421,10 @@ vocals diagnose
 
 ```bash
 # Run all tests
-vocals-test
+vocals test
 
 # Run a demo session
-vocals-demo --duration 30 --verbose
+vocals demo --duration 30 --verbose
 
 # Create project templates
 vocals create-template voice_assistant
@@ -436,13 +436,13 @@ vocals create-template conversation_tracker
 
 ```bash
 # Performance monitoring
-vocals-demo --duration 60 --stats
+vocals demo --duration 60 --stats
 
 # Custom audio device
-vocals-demo --device 2
+vocals demo --device 2
 
 # Debug mode
-VOCALS_DEBUG_LEVEL=DEBUG vocals-demo
+VOCALS_DEBUG_LEVEL=DEBUG vocals demo
 ```
 
 ## Error Handling
