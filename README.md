@@ -325,8 +325,6 @@ if __name__ == "__main__":
 # Required: Your Vocals API key
 export VOCALS_DEV_API_KEY="vdev_your_api_key_here"
 
-# Optional: Custom WebSocket endpoint
-export VOCALS_WS_ENDPOINT="ws://your-custom-endpoint.com/v1/stream/conversation"
 ```
 
 ### Audio Configuration
