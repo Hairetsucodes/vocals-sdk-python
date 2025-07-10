@@ -136,6 +136,87 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+## SDK Modes
+
+The Vocals SDK supports two usage patterns:
+
+### Default Experience (No Modes)
+
+When you create the SDK without specifying modes, you get a full auto-contained experience:
+
+```python
+# Full experience with automatic handlers, playback, and beautiful console output
+sdk = create_vocals()
+```
+
+**Features:**
+
+- ✅ Automatic transcription display with partial updates
+- ✅ Streaming AI response display in real-time
+- ✅ Automatic TTS audio playback
+- ✅ Speech interruption handling
+- ✅ Beautiful console output with emojis
+- ✅ Perfect for getting started quickly
+
+### Controlled Experience (With Modes)
+
+When you specify modes, the SDK becomes passive and you control everything:
+
+```python
+# Controlled experience - you handle all logic
+sdk = create_vocals(modes=['transcription', 'voice_assistant'])
+```
+
+**Available Modes:**
+
+- `'transcription'`: Enables transcription-related internal processing
+- `'voice_assistant'`: Enables AI response handling and speech interruption
+
+**Features:**
+
+- ✅ No automatic handlers attached
+- ✅ No automatic playback
+- ✅ You attach your own message handlers
+- ✅ You control when to play audio
+- ✅ Perfect for custom applications
+
+### Example: Controlled Experience
+
+```python
+import asyncio
+from vocals import create_vocals
+
+async def main():
+    # Create SDK with controlled experience
+    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
+
+    # Custom message handler
+    def handle_messages(message):
+        if message.type == "transcription" and message.data:
+            text = message.data.get("text", "")
+            is_partial = message.data.get("is_partial", False)
+            if not is_partial:
+                print(f"You said: {text}")
+
+        elif message.type == "tts_audio" and message.data:
+            text = message.data.get("text", "")
+            print(f"AI speaking: {text}")
+            # Manually start playback
+            asyncio.create_task(sdk["play_audio"]())
+
+    # Register your handler
+    sdk["on_message"](handle_messages)
+
+    # Stream microphone
+    await sdk["stream_microphone"](
+        duration=30.0,
+        auto_playback=False  # We control playback
+    )
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
 ## Advanced Usage
 
 ### Enhanced Microphone Streaming
@@ -145,8 +226,6 @@ import asyncio
 import logging
 from vocals import (
     create_vocals,
-    get_default_config,
-    AudioConfig,
     create_enhanced_message_handler,
     create_default_connection_handler,
     create_default_error_handler,
@@ -156,29 +235,8 @@ async def main():
     # Configure logging for cleaner output
     logging.getLogger("vocals").setLevel(logging.WARNING)
 
-    # Create configuration
-    config = get_default_config()
-    audio_config = AudioConfig(sample_rate=24000, channels=1, format="pcm_f32le")
-
-    # Create SDK instance
-    sdk = create_vocals(config, audio_config)
-
-    # Set up enhanced message handler for beautiful text display
-    remove_message_handler = sdk["on_message"](
-        create_enhanced_message_handler(
-            verbose=False,
-            show_transcription=True,  # Show transcription text prominently
-            show_responses=True,      # Show LLM responses prominently
-            show_streaming=True,      # Show streaming LLM responses
-            show_detection=True,      # Show voice activity detection
-        )
-    )
-
-    # Set up connection and error handlers
-    remove_connection_handler = sdk["on_connection_change"](
-        create_default_connection_handler()
-    )
-    remove_error_handler = sdk["on_error"](create_default_error_handler())
+    # Create SDK with default full experience
+    sdk = create_vocals()
 
     try:
         print("🎤 Starting microphone streaming...")
@@ -189,7 +247,7 @@ async def main():
             duration=30.0,            # Record for 30 seconds
             auto_connect=True,        # Auto-connect if needed
             auto_playback=True,       # Auto-play received audio
-            verbose=False,            # Clean output
+            verbose=False,            # SDK handles display automatically
             stats_tracking=True,      # Track session statistics
             amplitude_threshold=0.01, # Voice activity detection threshold
         )
@@ -201,11 +259,6 @@ async def main():
         print(f"   • TTS Segments: {stats.get('tts_segments_received', 0)}")
 
     finally:
-        # Cleanup handlers
-        remove_message_handler()
-        remove_connection_handler()
-        remove_error_handler()
-
         # Disconnect and cleanup
         await sdk["disconnect"]()
         sdk["cleanup"]()
@@ -225,26 +278,37 @@ from vocals import (
 )
 
 async def main():
-    # Create SDK and conversation tracker
-    sdk = create_vocals()
+    # Create SDK with controlled experience for custom tracking
+    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
     conversation_tracker = create_conversation_tracker()
 
-    # Enhanced message handler with conversation tracking
+    # Custom message handler with conversation tracking
     def tracking_handler(message):
-        # Display message nicely
-        display_handler = create_enhanced_message_handler(
-            verbose=False,
-            show_transcription=True,
-            show_responses=True,
-            show_streaming=True,
-        )
-        display_handler(message)
+        # Custom display logic
+        if message.type == "transcription" and message.data:
+            text = message.data.get("text", "")
+            is_partial = message.data.get("is_partial", False)
+            if not is_partial and text:
+                print(f"🎤 You: {text}")
+
+        elif message.type == "llm_response" and message.data:
+            response = message.data.get("response", "")
+            if response:
+                print(f"🤖 AI: {response}")
+
+        elif message.type == "tts_audio" and message.data:
+            text = message.data.get("text", "")
+            if text:
+                print(f"🔊 Playing: {text}")
+                # Manually start playback since we're in controlled mode
+                asyncio.create_task(sdk["play_audio"]())
 
         # Track conversation based on message type
         if message.type == "transcription" and message.data:
             text = message.data.get("text", "")
-            if text:
-                conversation_tracker["add_transcription"](text)
+            is_partial = message.data.get("is_partial", False)
+            if text and not is_partial:
+                conversation_tracker["add_transcription"](text, is_partial)
 
         elif message.type == "llm_response" and message.data:
             response = message.data.get("response", "")
@@ -252,11 +316,14 @@ async def main():
                 conversation_tracker["add_response"](response)
 
     # Set up handler
-    remove_handler = sdk["on_message"](tracking_handler)
+    sdk["on_message"](tracking_handler)
 
     try:
         # Stream microphone
-        await sdk["stream_microphone"](duration=15.0)
+        await sdk["stream_microphone"](
+            duration=15.0,
+            auto_playback=False  # We handle playback manually
+        )
 
         # Print conversation history
         print("\n" + "="*50)
@@ -269,7 +336,6 @@ async def main():
         print(f"\n📈 Session lasted {stats['duration']:.1f} seconds")
 
     finally:
-        remove_handler()
         await sdk["disconnect"]()
         sdk["cleanup"]()
 
@@ -386,9 +452,27 @@ sdk = create_vocals(config=config)
 
 ### Core Functions
 
-- `create_vocals(config?, audio_config?, user_id?)` - Create SDK instance
+- `create_vocals(config?, audio_config?, user_id?, modes?)` - Create SDK instance
 - `get_default_config()` - Get default configuration
 - `AudioConfig(...)` - Audio configuration class
+
+#### `create_vocals()` Parameters
+
+```python
+create_vocals(
+    config: Optional[VocalsConfig] = None,
+    audio_config: Optional[AudioConfig] = None,
+    user_id: Optional[str] = None,
+    modes: List[str] = []  # New parameter for controlling SDK behavior
+)
+```
+
+**Modes:**
+
+- `[]` (empty list): **Default Experience** - Full auto-contained behavior with automatic handlers
+- `['transcription']`: **Controlled** - Only transcription-related internal processing
+- `['voice_assistant']`: **Controlled** - Only AI response handling and speech interruption
+- `['transcription', 'voice_assistant']`: **Controlled** - Both features, but no automatic handlers
 
 ### SDK Methods
 
@@ -398,6 +482,9 @@ sdk = create_vocals(config=config)
 - `await sdk["disconnect"]()` - Disconnect from WebSocket
 - `await sdk["start_recording"]()` - Start recording
 - `await sdk["stop_recording"]()` - Stop recording
+- `await sdk["play_audio"]()` - Start/resume audio playback
+- `await sdk["pause_audio"]()` - Pause audio playback
+- `await sdk["stop_audio"]()` - Stop audio playback
 - `sdk["cleanup"]()` - Cleanup resources
 
 ### Event Handlers
@@ -407,9 +494,11 @@ sdk = create_vocals(config=config)
 - `sdk["on_error"](handler)` - Handle errors
 - `sdk["on_audio_data"](handler)` - Handle audio data
 
+**Note:** In **Default Experience** (no modes), enhanced message handlers are automatically attached. In **Controlled Experience** (with modes), you must attach your own handlers.
+
 ### Utility Functions
 
-- `create_enhanced_message_handler(**options)` - Enhanced message display
+- `create_enhanced_message_handler(**options)` - Enhanced message display (for controlled experience)
 - `create_conversation_tracker()` - Track conversation history
 - `create_microphone_stats_tracker()` - Track microphone session statistics
 - `create_default_connection_handler()` - Default connection handler
@@ -448,7 +537,15 @@ vocals demo --duration 30 --verbose
 vocals create-template voice_assistant
 vocals create-template file_processor
 vocals create-template conversation_tracker
+vocals create-template advanced_voice_assistant
 ```
+
+**Available Templates:**
+
+- `voice_assistant`: Simple voice assistant (**Default Experience**)
+- `file_processor`: Process audio files (**Default Experience**)
+- `conversation_tracker`: Track conversations (**Controlled Experience**)
+- `advanced_voice_assistant`: Full control voice assistant (**Controlled Experience**)
 
 ### Advanced Features
 

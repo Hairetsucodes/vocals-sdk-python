@@ -49,20 +49,12 @@ def demo(duration, verbose, stats, device):
             logging.getLogger("vocals").setLevel(logging.WARNING)
 
         try:
-            # Create configuration with auto_connect disabled to avoid double connection
-            config = get_default_config()
-            config.auto_connect = False  # Let stream_microphone handle connection
-            audio_config = AudioConfig(
-                sample_rate=24000, channels=1, format="pcm_f32le"
-            )
+            # Create SDK with default full experience
+            sdk = create_vocals()  # No modes = full auto-contained experience
 
-            # Override audio device if specified
+            # TODO: Override audio device if specified
             if device is not None:
                 print(f"Using audio device ID: {device}")
-                # This would need to be implemented in audio_processor
-
-            # Create SDK
-            sdk = create_vocals(config, audio_config)
 
             print(f"Starting microphone streaming for {duration}s...")
             print("Speak into your microphone!")
@@ -73,7 +65,7 @@ def demo(duration, verbose, stats, device):
                 duration=duration,
                 auto_connect=True,
                 auto_playback=True,
-                verbose=verbose,
+                verbose=False,  # SDK handles display automatically
                 stats_tracking=stats,
             )
 
@@ -177,7 +169,7 @@ VOCALS_WS_ENDPOINT={endpoint}
         f.write(env_content)
 
     print("\n✅ Configuration saved to .env")
-    print("You can now run: vocals-demo")
+    print("You can now run: vocals demo")
 
 
 @cli.command()
@@ -261,7 +253,14 @@ def test_device(device_id, duration):
 @click.argument("template_name")
 @click.option("--output", "-o", default=None, help="Output file name")
 def create_template(template_name, output):
-    """Create a template file for quick start"""
+    """Create a template file for quick start
+
+    Available templates:
+    - voice_assistant: Simple voice assistant (default experience)
+    - file_processor: Process audio files (default experience)
+    - conversation_tracker: Track conversations (controlled experience)
+    - advanced_voice_assistant: Full control voice assistant (controlled experience)
+    """
 
     templates = get_available_templates()
 
@@ -386,30 +385,8 @@ logger = logging.getLogger(__name__)
 async def voice_assistant():
     """Main voice assistant function"""
     
-    # Create SDK instance with auto_connect disabled to avoid double connection
-    from vocals.config import get_default_config
-    config = get_default_config()
-    config.auto_connect = False  # Let stream_microphone handle connection
-    sdk = create_vocals(config)
-    
-    # Custom message handlers
-    def on_transcription(message):
-        if message.type == "transcription" and message.data:
-            text = message.data.get("text", "")
-            is_partial = message.data.get("is_partial", False)
-            
-            if not is_partial and text:
-                print(f"🎤 You said: {text}")
-    
-    def on_ai_response(message):
-        if message.type == "llm_response" and message.data:
-            response = message.data.get("response", "")
-            if response:
-                print(f"🤖 AI: {response}")
-    
-    # Register handlers
-    sdk["on_message"](on_transcription)
-    sdk["on_message"](on_ai_response)
+    # Create SDK instance with default full experience
+    sdk = create_vocals()  # No modes = full auto-contained experience
     
     try:
         print("🎤 Voice Assistant Started")
@@ -421,7 +398,7 @@ async def voice_assistant():
             duration=30,
             auto_connect=True,
             auto_playback=True,
-            verbose=True
+            verbose=False
         )
         
     except KeyboardInterrupt:
@@ -452,20 +429,8 @@ async def process_audio_file(file_path: str):
         print(f"❌ File not found: {file_path}")
         return
     
-    # Create SDK instance with auto_connect disabled to avoid double connection
-    from vocals.config import get_default_config
-    config = get_default_config()
-    config.auto_connect = False  # Let stream_audio_file handle connection
-    sdk = create_vocals(config)
-    
-    # Handler for responses
-    def on_response(message):
-        if message.type == "llm_response" and message.data:
-            response = message.data.get("response", "")
-            if response:
-                print(f"🤖 AI Response: {response}")
-    
-    sdk["on_message"](on_response)
+    # Create SDK instance with default full experience
+    sdk = create_vocals()  # No modes = full auto-contained experience
     
     try:
         print(f"🎵 Processing file: {file_path}")
@@ -473,7 +438,7 @@ async def process_audio_file(file_path: str):
         # Stream audio file
         await sdk["stream_audio_file"](
             file_path=file_path,
-            verbose=True,
+            verbose=False,
             auto_connect=True
         )
         
@@ -508,30 +473,35 @@ import asyncio
 from vocals import (
     create_vocals,
     create_conversation_tracker,
-    create_enhanced_message_handler
 )
 
 async def conversation_session():
     """Run a conversation session with tracking"""
     
-    # Create SDK and tracker with auto_connect disabled to avoid double connection
-    from vocals.config import get_default_config
-    config = get_default_config()
-    config.auto_connect = False  # Let stream_microphone handle connection
-    sdk = create_vocals(config)
+    # Create SDK with controlled experience for custom tracking
+    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
     tracker = create_conversation_tracker()
-    
-    # Enhanced message handler
-    handler = create_enhanced_message_handler(
-        verbose=True,
-        show_transcription=True,
-        show_responses=True,
-        show_streaming=True
-    )
     
     # Tracking handler
     def track_conversation(message):
-        handler(message)  # Display message
+        # Custom display logic
+        if message.type == "transcription" and message.data:
+            text = message.data.get("text", "")
+            is_partial = message.data.get("is_partial", False)
+            if not is_partial and text:
+                print(f"🎤 You: {text}")
+                
+        elif message.type == "llm_response" and message.data:
+            response = message.data.get("response", "")
+            if response:
+                print(f"🤖 AI: {response}")
+                
+        elif message.type == "tts_audio" and message.data:
+            text = message.data.get("text", "")
+            if text:
+                print(f"🔊 Playing: {text}")
+                # Manually start playback since we're in controlled mode
+                asyncio.create_task(sdk["play_audio"]())
         
         # Track conversation
         if message.type == "transcription" and message.data:
@@ -556,7 +526,7 @@ async def conversation_session():
         await sdk["stream_microphone"](
             duration=60,  # 1 minute
             auto_connect=True,
-            auto_playback=True,
+            auto_playback=False,  # We handle playback manually
             verbose=False
         )
         
@@ -578,6 +548,112 @@ async def conversation_session():
 
 if __name__ == "__main__":
     asyncio.run(conversation_session())
+''',
+        "advanced_voice_assistant": '''#!/usr/bin/env python3
+"""
+Advanced Voice Assistant Template
+Full control over voice assistant behavior using modes
+"""
+
+import asyncio
+import logging
+from vocals import create_vocals
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def advanced_voice_assistant():
+    """Advanced voice assistant with full control"""
+    
+    # Create SDK with specific modes for controlled experience
+    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
+    
+    # Custom state tracking
+    conversation_state = {
+        'listening': False,
+        'processing': False,
+        'speaking': False
+    }
+    
+    def handle_messages(message):
+        """Custom message handler with full control"""
+        
+        if message.type == "transcription" and message.data:
+            text = message.data.get("text", "")
+            is_partial = message.data.get("is_partial", False)
+            
+            if is_partial:
+                # Show live transcription
+                print(f"\\r🎤 Listening: {text}...", end="", flush=True)
+                conversation_state['listening'] = True
+            else:
+                # Final transcription
+                print(f"\\n✅ You said: {text}")
+                conversation_state['listening'] = False
+                conversation_state['processing'] = True
+                
+        elif message.type == "llm_response_streaming" and message.data:
+            token = message.data.get("token", "")
+            is_complete = message.data.get("is_complete", False)
+            
+            if not conversation_state['processing']:
+                print("\\n🤖 AI thinking: ", end="", flush=True)
+                conversation_state['processing'] = True
+                
+            if token:
+                print(token, end="", flush=True)
+                
+            if is_complete:
+                print()  # New line
+                conversation_state['processing'] = False
+                
+        elif message.type == "tts_audio" and message.data:
+            text = message.data.get("text", "")
+            if text and not conversation_state['speaking']:
+                print(f"🔊 AI speaking: {text}")
+                conversation_state['speaking'] = True
+                # Manually control playback
+                asyncio.create_task(sdk["play_audio"]())
+                
+        elif message.type == "speech_interruption":
+            print("\\n🛑 Speech interrupted")
+            conversation_state['speaking'] = False
+    
+    # Register our custom handler
+    sdk["on_message"](handle_messages)
+    
+    # Connection handler
+    def handle_connection(state):
+        if state.name == "CONNECTED":
+            print("✅ Connected to voice assistant")
+        elif state.name == "DISCONNECTED":
+            print("❌ Disconnected from voice assistant")
+    
+    sdk["on_connection_change"](handle_connection)
+    
+    try:
+        print("🎤 Advanced Voice Assistant Started")
+        print("Full control mode - custom handlers active")
+        print("Speak into your microphone...")
+        print("Press Ctrl+C to stop")
+        
+        # Stream microphone with manual control
+        await sdk["stream_microphone"](
+            duration=0,  # Infinite
+            auto_connect=True,
+            auto_playback=False,  # We control playback manually
+            verbose=False
+        )
+        
+    except KeyboardInterrupt:
+        print("\\n👋 Advanced voice assistant stopped")
+    finally:
+        await sdk["disconnect"]()
+        sdk["cleanup"]()
+
+if __name__ == "__main__":
+    asyncio.run(advanced_voice_assistant())
 ''',
     }
 

@@ -31,6 +31,7 @@ def create_vocals(
     config: Optional[VocalsConfig] = None,
     audio_config: Optional[AudioConfig] = None,
     user_id: Optional[str] = None,
+    modes: List[str] = [],  # e.g., ['transcription', 'voice_assistant']
 ):
     """
     Create a Vocals SDK instance for voice processing and real-time audio communication.
@@ -42,6 +43,11 @@ def create_vocals(
         config: Configuration options for the SDK
         audio_config: Audio processing configuration
         user_id: Optional user ID for token generation
+        modes: List of modes to control SDK behavior (e.g., ['transcription', 'voice_assistant'])
+               - Default (empty list): Full auto-contained experience with handlers, playback, and logging
+               - 'transcription': Enables transcription-related internal processing only
+               - 'voice_assistant': Enables AI response handling and speech interruption only
+               Note: When modes are specified, SDK becomes passive - users must attach their own handlers.
 
     Returns:
         Dictionary with SDK functions and properties
@@ -87,16 +93,16 @@ def create_vocals(
                 # Add to audio queue
                 audio_processor["add_to_queue"](segment)
 
-                # Auto-start playback if not already playing
-                if not audio_processor["get_is_playing"]():
+                # Auto-start playback if not already playing (default experience only)
+                if not modes and not audio_processor["get_is_playing"]():
                     asyncio.create_task(audio_processor["play_audio"]())
 
             # Handle speech interruption messages
             elif message.type == "speech_interruption":
-                logger.info(f"Speech interruption received: {message.data}")
-
-                # Fade out current audio and clear queue for new speech
-                asyncio.create_task(_handle_speech_interruption())
+                # Handle speech interruption for default experience or voice_assistant mode
+                if not modes or "voice_assistant" in modes:
+                    # Fade out current audio and clear queue for new speech
+                    asyncio.create_task(_handle_speech_interruption())
 
         except Exception as e:
             logger.error(f"Error handling WebSocket message: {e}")
@@ -157,6 +163,19 @@ def create_vocals(
     audio_processor["add_audio_data_handler"](_handle_audio_data)
     websocket_client["add_error_handler"](_handle_error)
     audio_processor["add_error_handler"](_handle_error)
+
+    # Auto-attach enhanced handler ONLY when no modes are specified (default experience)
+    if not modes:  # Empty list means default full experience
+        from .utils import create_enhanced_message_handler
+
+        enhanced_handler = create_enhanced_message_handler(
+            verbose=(config.debug_level == "DEBUG"),
+            show_transcription=True,
+            show_responses=True,
+            show_streaming=True,
+            show_detection=True,
+        )
+        websocket_client["add_message_handler"](enhanced_handler)
 
     # Connection methods
     async def connect() -> None:
