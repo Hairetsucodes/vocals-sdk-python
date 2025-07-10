@@ -21,8 +21,8 @@ class VocalsConfig:
     # Custom headers for token requests
     headers: Optional[Dict[str, str]] = None
 
-    # Auto-connect on initialization (defaults to True)
-    auto_connect: bool = True
+    # Auto-connect on initialization (defaults to False to prevent race conditions)
+    auto_connect: bool = False
 
     # Reconnection attempts (defaults to 3)
     max_reconnect_attempts: int = 3
@@ -170,7 +170,7 @@ def get_default_config() -> VocalsConfig:
         ws_endpoint=os.environ.get(
             "VOCALS_WS_ENDPOINT", "ws://192.168.1.46:8000/v1/stream/conversation"
         ),
-        auto_connect=os.environ.get("VOCALS_AUTO_CONNECT", "true").lower() == "true",
+        auto_connect=os.environ.get("VOCALS_AUTO_CONNECT", "false").lower() == "true",
         max_reconnect_attempts=int(
             os.environ.get("VOCALS_MAX_RECONNECT_ATTEMPTS", "3")
         ),
@@ -317,7 +317,7 @@ VOCALS_DEV_API_KEY={api_key}
 VOCALS_WS_ENDPOINT={endpoint}
 
 # Connection Configuration
-VOCALS_AUTO_CONNECT=true
+VOCALS_AUTO_CONNECT=false
 VOCALS_MAX_RECONNECT_ATTEMPTS=3
 VOCALS_RECONNECT_DELAY=1.0
 VOCALS_TOKEN_REFRESH_BUFFER=60.0

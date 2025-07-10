@@ -5,7 +5,7 @@ Test script to verify that auto_playback=False works correctly
 
 import asyncio
 import logging
-from vocals import create_vocals, get_default_config
+from vocals import create_vocals
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -15,11 +15,8 @@ logger = logging.getLogger(__name__)
 async def test_auto_playback_false():
     """Test that auto_playback=False prevents automatic playback"""
 
-    # Create SDK with controlled experience and disabled auto-connect to avoid race condition
-    config = get_default_config()
-    config.auto_connect = False  # Disable auto-connect to prevent race condition
-
-    sdk = create_vocals(config=config, modes=["transcription", "voice_assistant"])
+    # Create SDK with controlled experience (auto-connect now defaults to False)
+    sdk = create_vocals(modes=["transcription", "voice_assistant"])
 
     # Flag to track if playback was triggered automatically
     playback_triggered = False

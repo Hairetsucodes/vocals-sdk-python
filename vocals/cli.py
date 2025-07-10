@@ -162,6 +162,9 @@ def setup(force):
     env_content = f"""# Vocals SDK Configuration
 VOCALS_DEV_API_KEY={api_key}
 VOCALS_WS_ENDPOINT={endpoint}
+
+# Connection settings (auto_connect defaults to False to prevent race conditions)
+# VOCALS_AUTO_CONNECT=false
 """
 
     if device_id is not None:
@@ -388,7 +391,8 @@ async def voice_assistant():
     """Main voice assistant function"""
     
     # Create SDK instance with default full experience
-    sdk = create_vocals()  # No modes = full auto-contained experience
+    # No modes = full auto-contained experience with automatic playback
+    sdk = create_vocals()
     
     try:
         print("🎤 Voice Assistant Started")
@@ -398,8 +402,8 @@ async def voice_assistant():
         # Stream microphone (30 seconds)
         await sdk["stream_microphone"](
             duration=30,
-            auto_connect=True,
-            auto_playback=True,
+            auto_connect=True,  # Connects automatically since auto_connect defaults to False
+            auto_playback=True,  # AI responses play automatically
             verbose=False
         )
         
@@ -432,7 +436,8 @@ async def process_audio_file(file_path: str):
         return
     
     # Create SDK instance with default full experience
-    sdk = create_vocals()  # No modes = full auto-contained experience
+    # No modes = full auto-contained experience with automatic playback
+    sdk = create_vocals()
     
     try:
         print(f"🎵 Processing file: {file_path}")
@@ -441,10 +446,10 @@ async def process_audio_file(file_path: str):
         await sdk["stream_audio_file"](
             file_path=file_path,
             verbose=False,
-            auto_connect=True
+            auto_connect=True  # Connects automatically since auto_connect defaults to False
         )
         
-        # Wait for TTS playback to complete
+        # Wait for TTS playback to complete (playback is automatic in default mode)
         print("⏳ Waiting for AI response playback...")
         while sdk["get_is_playing"]():
             await asyncio.sleep(0.1)
@@ -481,10 +486,11 @@ async def conversation_session():
     """Run a conversation session with tracking"""
     
     # Create SDK with controlled experience for custom tracking
+    # Using modes disables automatic handlers - we implement custom ones
     sdk = create_vocals(modes=['transcription', 'voice_assistant'])
     tracker = create_conversation_tracker()
     
-    # Tracking handler
+    # Custom tracking handler with manual playback control
     def track_conversation(message):
         # Custom display logic
         if message.type == "transcription" and message.data:
@@ -502,10 +508,10 @@ async def conversation_session():
             text = message.data.get("text", "")
             if text:
                 print(f"🔊 Playing: {text}")
-                # Manually start playback since we're in controlled mode
+                # Manually start playback since auto_playback=False
                 asyncio.create_task(sdk["play_audio"]())
         
-        # Track conversation
+        # Track conversation for analysis
         if message.type == "transcription" and message.data:
             text = message.data.get("text", "")
             is_partial = message.data.get("is_partial", False)
@@ -517,6 +523,7 @@ async def conversation_session():
             if response:
                 tracker["add_response"](response)
     
+    # Register our custom handler
     sdk["on_message"](track_conversation)
     
     try:
@@ -524,11 +531,11 @@ async def conversation_session():
         print("Have a conversation with the AI...")
         print("Press Ctrl+C to stop and see analysis")
         
-        # Run conversation
+        # Run conversation with manual playback control
         await sdk["stream_microphone"](
             duration=60,  # 1 minute
-            auto_connect=True,
-            auto_playback=False,  # We handle playback manually
+            auto_connect=True,  # Connects automatically since auto_connect defaults to False
+            auto_playback=False,  # We control playback manually via our handler
             verbose=False
         )
         
@@ -554,7 +561,7 @@ if __name__ == "__main__":
         "advanced_voice_assistant": '''#!/usr/bin/env python3
 """
 Advanced Voice Assistant Template
-Full control over voice assistant behavior using modes
+Full control over voice assistant behavior using controlled mode
 """
 
 import asyncio
@@ -566,12 +573,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def advanced_voice_assistant():
-    """Advanced voice assistant with full control"""
+    """Advanced voice assistant with full manual control"""
     
     # Create SDK with specific modes for controlled experience
+    # Using modes disables all automatic handlers - we have complete control
     sdk = create_vocals(modes=['transcription', 'voice_assistant'])
     
-    # Custom state tracking
+    # Custom state tracking for conversation flow
     conversation_state = {
         'listening': False,
         'processing': False,
@@ -579,18 +587,18 @@ async def advanced_voice_assistant():
     }
     
     def handle_messages(message):
-        """Custom message handler with full control"""
+        """Custom message handler with complete control over all behavior"""
         
         if message.type == "transcription" and message.data:
             text = message.data.get("text", "")
             is_partial = message.data.get("is_partial", False)
             
             if is_partial:
-                # Show live transcription
+                # Show live transcription updates
                 print(f"\\r🎤 Listening: {text}...", end="", flush=True)
                 conversation_state['listening'] = True
             else:
-                # Final transcription
+                # Final transcription result
                 print(f"\\n✅ You said: {text}")
                 conversation_state['listening'] = False
                 conversation_state['processing'] = True
@@ -615,17 +623,17 @@ async def advanced_voice_assistant():
             if text and not conversation_state['speaking']:
                 print(f"🔊 AI speaking: {text}")
                 conversation_state['speaking'] = True
-                # Manually control playback
+                # Manually trigger playback since auto_playback=False
                 asyncio.create_task(sdk["play_audio"]())
                 
         elif message.type == "speech_interruption":
             print("\\n🛑 Speech interrupted")
             conversation_state['speaking'] = False
     
-    # Register our custom handler
+    # Register our custom message handler
     sdk["on_message"](handle_messages)
     
-    # Connection handler
+    # Custom connection handler
     def handle_connection(state):
         if state.name == "CONNECTED":
             print("✅ Connected to voice assistant")
@@ -637,14 +645,15 @@ async def advanced_voice_assistant():
     try:
         print("🎤 Advanced Voice Assistant Started")
         print("Full control mode - custom handlers active")
+        print("Features: live transcription, streaming responses, manual playback")
         print("Speak into your microphone...")
         print("Press Ctrl+C to stop")
         
-        # Stream microphone with manual control
+        # Stream microphone with complete manual control
         await sdk["stream_microphone"](
-            duration=0,  # Infinite
-            auto_connect=True,
-            auto_playback=False,  # We control playback manually
+            duration=0,  # Infinite recording
+            auto_connect=True,  # Connects automatically since auto_connect defaults to False
+            auto_playback=False,  # We have complete manual control over playback
             verbose=False
         )
         
