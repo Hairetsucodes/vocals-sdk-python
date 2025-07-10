@@ -22,9 +22,11 @@ A Python SDK for voice processing and real-time audio communication with AI assi
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [SDK Modes](#sdk-modes)
 - [Advanced Usage](#advanced-usage)
 - [Configuration](#configuration)
-- [API Reference](#api-reference)
+- [Complete API Reference](#complete-api-reference)
+- [Testing Your Setup](#testing-your-setup)
 - [CLI Tools](#cli-tools)
 - [Error Handling](#error-handling)
 - [Troubleshooting](#troubleshooting)
@@ -448,7 +450,30 @@ config.token_refresh_buffer = 60.0
 sdk = create_vocals(config=config)
 ```
 
-## API Reference
+## Complete API Reference
+
+The Vocals SDK provides comprehensive control over voice processing, connection management, audio playback, and event handling. Here's a complete reference of all available controls:
+
+**🎛️ Main Control Categories:**
+
+- **SDK Creation & Configuration** - Initialize and configure the SDK
+- **Stream Methods** - Control microphone and file streaming
+- **Connection Management** - Connect, disconnect, and manage WebSocket connections
+- **Audio Playback** - Control TTS audio playback, queueing, and timing
+- **Event Handling** - Register handlers for messages, connections, errors, and audio data
+- **State Management** - Access real-time state information
+- **Device Management** - Manage and test audio devices
+
+**📋 Quick Reference:**
+| Control Category | Key Methods | Purpose |
+|------------------|-------------|---------|
+| **Streaming** | `stream_microphone()`, `stream_audio_file()` | Start voice/audio processing |
+| **Connection** | `connect()`, `disconnect()`, `reconnect()` | Manage WebSocket connection |
+| **Recording** | `start_recording()`, `stop_recording()` | Control audio input |
+| **Playback** | `play_audio()`, `pause_audio()`, `stop_audio()` | Control TTS audio output |
+| **Queue** | `clear_queue()`, `add_to_queue()`, `get_audio_queue()` | Manage audio queue |
+| **Events** | `on_message()`, `on_connection_change()`, `on_error()` | Handle events |
+| **State** | `get_is_connected()`, `get_is_playing()`, `get_recording_state()` | Check current state |
 
 ### Core Functions
 
@@ -463,9 +488,16 @@ create_vocals(
     config: Optional[VocalsConfig] = None,
     audio_config: Optional[AudioConfig] = None,
     user_id: Optional[str] = None,
-    modes: List[str] = []  # New parameter for controlling SDK behavior
+    modes: List[str] = []  # Controls SDK behavior
 )
 ```
+
+**Parameters:**
+
+- `config`: SDK configuration options (connection, logging, etc.)
+- `audio_config`: Audio processing configuration (sample rate, channels, etc.)
+- `user_id`: Optional user ID for token generation
+- `modes`: List of modes to control SDK behavior
 
 **Modes:**
 
@@ -474,35 +506,484 @@ create_vocals(
 - `['voice_assistant']`: **Controlled** - Only AI response handling and speech interruption
 - `['transcription', 'voice_assistant']`: **Controlled** - Both features, but no automatic handlers
 
-### SDK Methods
+### Audio Configuration
 
-- `await sdk["stream_microphone"](**options)` - Stream microphone input
-- `await sdk["stream_audio_file"](file_path, **options)` - Stream audio file
-- `await sdk["connect"]()` - Connect to WebSocket
-- `await sdk["disconnect"]()` - Disconnect from WebSocket
-- `await sdk["start_recording"]()` - Start recording
-- `await sdk["stop_recording"]()` - Stop recording
-- `await sdk["play_audio"]()` - Start/resume audio playback
-- `await sdk["pause_audio"]()` - Pause audio playback
-- `await sdk["stop_audio"]()` - Stop audio playback
-- `sdk["cleanup"]()` - Cleanup resources
+```python
+AudioConfig(
+    sample_rate: int = 24000,     # Sample rate in Hz
+    channels: int = 1,            # Number of audio channels
+    format: str = "pcm_f32le",    # Audio format
+    buffer_size: int = 1024,      # Audio buffer size
+)
+```
+
+### Stream Methods
+
+#### `stream_microphone()` Parameters
+
+```python
+await sdk["stream_microphone"](
+    duration: float = 30.0,           # Recording duration in seconds (0 for infinite)
+    auto_connect: bool = True,        # Whether to automatically connect if not connected
+    auto_playback: bool = True,       # Whether to automatically play received audio
+    verbose: bool = True,             # Whether to log detailed progress
+    stats_tracking: bool = True,      # Whether to track and return statistics
+    amplitude_threshold: float = 0.01 # Minimum amplitude to consider as speech
+)
+```
+
+**Important:** In **Controlled Experience** (with modes), TTS audio is always added to the queue, but `auto_playback=False` prevents automatic playback. You must manually call `sdk["play_audio"]()` to play queued audio.
+
+#### `stream_audio_file()` Parameters
+
+```python
+await sdk["stream_audio_file"](
+    file_path: str,                   # Path to the audio file to stream
+    chunk_size: int = 1024,           # Size of each chunk to send
+    verbose: bool = True,             # Whether to log detailed progress
+    auto_connect: bool = True         # Whether to automatically connect if not connected
+)
+```
+
+### Connection & Recording Methods
+
+```python
+await sdk["connect"]()                # Connect to WebSocket
+await sdk["disconnect"]()             # Disconnect from WebSocket
+await sdk["reconnect"]()              # Reconnect to WebSocket
+await sdk["start_recording"]()        # Start recording
+await sdk["stop_recording"]()         # Stop recording
+```
+
+### Audio Playback Methods
+
+```python
+await sdk["play_audio"]()             # Start/resume audio playback
+await sdk["pause_audio"]()            # Pause audio playback
+await sdk["stop_audio"]()             # Stop audio playback
+await sdk["fade_out_audio"](duration) # Fade out audio over specified duration
+sdk["clear_queue"]()                  # Clear the audio playback queue
+sdk["add_to_queue"](segment)          # Add audio segment to queue
+```
 
 ### Event Handlers
 
-- `sdk["on_message"](handler)` - Handle incoming messages
-- `sdk["on_connection_change"](handler)` - Handle connection state changes
-- `sdk["on_error"](handler)` - Handle errors
-- `sdk["on_audio_data"](handler)` - Handle audio data
+```python
+sdk["on_message"](handler)            # Handle incoming messages
+sdk["on_connection_change"](handler)  # Handle connection state changes
+sdk["on_error"](handler)              # Handle errors
+sdk["on_audio_data"](handler)         # Handle audio data
+```
 
-**Note:** In **Default Experience** (no modes), enhanced message handlers are automatically attached. In **Controlled Experience** (with modes), you must attach your own handlers.
+**Handler Functions:**
+
+- `handler(message)` - Message handler receives WebSocket messages
+- `handler(connection_state)` - Connection handler receives connection state changes
+- `handler(error)` - Error handler receives error objects
+- `handler(audio_data)` - Audio data handler receives real-time audio data
+
+### Property Getters
+
+```python
+sdk["get_connection_state"]()         # Get current connection state
+sdk["get_is_connected"]()             # Check if connected
+sdk["get_is_connecting"]()            # Check if connecting
+sdk["get_recording_state"]()          # Get current recording state
+sdk["get_is_recording"]()             # Check if recording
+sdk["get_playback_state"]()           # Get current playback state
+sdk["get_is_playing"]()               # Check if playing audio
+sdk["get_audio_queue"]()              # Get current audio queue
+sdk["get_current_segment"]()          # Get currently playing segment
+sdk["get_current_amplitude"]()        # Get current audio amplitude
+sdk["get_token"]()                    # Get current token
+sdk["get_token_expires_at"]()         # Get token expiration timestamp
+```
 
 ### Utility Functions
 
-- `create_enhanced_message_handler(**options)` - Enhanced message display (for controlled experience)
-- `create_conversation_tracker()` - Track conversation history
-- `create_microphone_stats_tracker()` - Track microphone session statistics
-- `create_default_connection_handler()` - Default connection handler
-- `create_default_error_handler()` - Default error handler
+```python
+# Message handlers
+create_enhanced_message_handler(
+    verbose: bool = True,
+    show_transcription: bool = True,
+    show_responses: bool = True,
+    show_streaming: bool = True,
+    show_detection: bool = False
+)
+
+# Conversation tracking
+create_conversation_tracker()
+
+# Statistics tracking
+create_microphone_stats_tracker(verbose: bool = True)
+
+# Connection handlers
+create_default_connection_handler(verbose: bool = True)
+create_default_error_handler(verbose: bool = True)
+```
+
+### Audio Device Management
+
+```python
+# Device management
+list_audio_devices()                  # List available audio devices
+get_default_audio_device()            # Get default audio device
+test_audio_device(device_id, duration) # Test audio device
+validate_audio_device(device_id)      # Validate audio device
+get_audio_device_info(device_id)      # Get device information
+print_audio_devices()                 # Print formatted device list
+create_audio_device_selector()        # Interactive device selector
+```
+
+### Auto-Playback Behavior
+
+**Default Experience (no modes):**
+
+- `auto_playback=True` (default): TTS audio plays automatically
+- `auto_playback=False`: TTS audio is added to queue but doesn't play automatically
+
+**Controlled Experience (with modes):**
+
+- `auto_playback=True`: TTS audio is added to queue and plays automatically
+- `auto_playback=False`: TTS audio is added to queue but requires manual `sdk["play_audio"]()` call
+
+**Key Point:** In controlled mode, TTS audio is **always** added to the queue regardless of `auto_playback` setting. The `auto_playback` parameter only controls whether playback starts automatically.
+
+### Message Types
+
+Common message types you'll receive in handlers:
+
+```python
+# Transcription messages
+{
+    "type": "transcription",
+    "data": {
+        "text": "Hello world",
+        "is_partial": False,
+        "segment_id": "abc123"
+    }
+}
+
+# LLM streaming response
+{
+    "type": "llm_response_streaming",
+    "data": {
+        "token": "Hello",
+        "accumulated_response": "Hello",
+        "is_complete": False,
+        "segment_id": "def456"
+    }
+}
+
+# TTS audio
+{
+    "type": "tts_audio",
+    "data": {
+        "text": "Hello there",
+        "audio_data": "base64_encoded_wav_data",
+        "sample_rate": 24000,
+        "segment_id": "ghi789",
+        "duration_seconds": 1.5
+    }
+}
+
+# Speech interruption
+{
+    "type": "speech_interruption",
+    "data": {}
+}
+```
+
+## Testing Your Setup
+
+After setting up the SDK, you can test all the controls to ensure everything is working properly:
+
+### 1. Test Basic Audio Setup
+
+```bash
+# List available audio devices
+vocals devices
+
+# Test your microphone
+vocals test-device
+
+# Run system diagnostics
+vocals diagnose
+```
+
+### 2. Test Default Experience
+
+```python
+import asyncio
+from vocals import create_vocals
+
+async def test_default():
+    """Test default experience with automatic handlers"""
+    sdk = create_vocals()  # No modes = full automatic experience
+
+    print("🎤 Testing default experience...")
+    print("Speak and listen for AI responses...")
+
+    # Test with automatic playback
+    await sdk["stream_microphone"](
+        duration=15.0,
+        auto_playback=True,  # Should auto-play TTS
+        verbose=False
+    )
+
+    await sdk["disconnect"]()
+    sdk["cleanup"]()
+
+asyncio.run(test_default())
+```
+
+### 3. Test Controlled Experience
+
+```python
+import asyncio
+from vocals import create_vocals
+
+async def test_controlled():
+    """Test controlled experience with manual handlers"""
+    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
+
+    # Track what we receive
+    received_messages = []
+
+    def test_handler(message):
+        received_messages.append(message.type)
+        print(f"✅ Received: {message.type}")
+
+        # Test manual playback control
+        if message.type == "tts_audio":
+            print("🔊 Manually triggering playback...")
+            asyncio.create_task(sdk["play_audio"]())
+
+    # Register handler
+    sdk["on_message"](test_handler)
+
+    print("🎤 Testing controlled experience...")
+    print("Should receive transcription and TTS messages...")
+
+    # Test with manual playback control
+    await sdk["stream_microphone"](
+        duration=15.0,
+        auto_playback=False,  # We control playback manually
+        verbose=False
+    )
+
+    print(f"📊 Received message types: {set(received_messages)}")
+
+    # Verify we got the expected message types
+    expected_types = ["transcription", "tts_audio"]
+    for msg_type in expected_types:
+        if msg_type in received_messages:
+            print(f"✅ {msg_type} messages working")
+        else:
+            print(f"❌ {msg_type} messages not received")
+
+    await sdk["disconnect"]()
+    sdk["cleanup"]()
+
+asyncio.run(test_controlled())
+```
+
+### 4. Test Audio Playback Controls
+
+```python
+import asyncio
+from vocals import create_vocals
+
+async def test_playback_controls():
+    """Test all audio playback controls"""
+    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
+
+    # Test queue management
+    print("🎵 Testing audio playback controls...")
+
+    # Check initial state
+    print(f"Initial queue size: {len(sdk['get_audio_queue']())}")
+    print(f"Is playing: {sdk['get_is_playing']()}")
+
+    def audio_handler(message):
+        if message.type == "tts_audio":
+            print(f"🎵 Audio received: {message.data.get('text', '')}")
+            print(f"Queue size: {len(sdk['get_audio_queue']())}")
+
+    sdk["on_message"](audio_handler)
+
+    # Stream and collect audio
+    await sdk["stream_microphone"](
+        duration=10.0,
+        auto_playback=False,  # Don't auto-play
+        verbose=False
+    )
+
+    # Test manual controls
+    queue_size = len(sdk["get_audio_queue"]())
+    if queue_size > 0:
+        print(f"✅ {queue_size} audio segments in queue")
+
+        print("🎵 Testing play_audio()...")
+        await sdk["play_audio"]()
+
+        # Wait a moment then test pause
+        await asyncio.sleep(1)
+        print("⏸️ Testing pause_audio()...")
+        await sdk["pause_audio"]()
+
+        print("▶️ Testing play_audio() again...")
+        await sdk["play_audio"]()
+
+        # Test stop
+        await asyncio.sleep(1)
+        print("⏹️ Testing stop_audio()...")
+        await sdk["stop_audio"]()
+
+        print("🗑️ Testing clear_queue()...")
+        sdk["clear_queue"]()
+        print(f"Queue size after clear: {len(sdk['get_audio_queue']())}")
+
+        print("✅ All playback controls working!")
+    else:
+        print("❌ No audio received to test playback controls")
+
+    await sdk["disconnect"]()
+    sdk["cleanup"]()
+
+asyncio.run(test_playback_controls())
+```
+
+### 5. Test All Event Handlers
+
+```python
+import asyncio
+from vocals import create_vocals
+
+async def test_event_handlers():
+    """Test all event handler types"""
+    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
+
+    # Track events
+    events_received = {
+        'messages': 0,
+        'connections': 0,
+        'errors': 0,
+        'audio_data': 0
+    }
+
+    def message_handler(message):
+        events_received['messages'] += 1
+        print(f"📩 Message: {message.type}")
+
+    def connection_handler(state):
+        events_received['connections'] += 1
+        print(f"🔌 Connection: {state.name}")
+
+    def error_handler(error):
+        events_received['errors'] += 1
+        print(f"❌ Error: {error.message}")
+
+    def audio_data_handler(audio_data):
+        events_received['audio_data'] += 1
+        if events_received['audio_data'] % 100 == 0:  # Log every 100th
+            print(f"🎤 Audio data chunks: {events_received['audio_data']}")
+
+    # Register all handlers
+    sdk["on_message"](message_handler)
+    sdk["on_connection_change"](connection_handler)
+    sdk["on_error"](error_handler)
+    sdk["on_audio_data"](audio_data_handler)
+
+    print("🧪 Testing all event handlers...")
+
+    await sdk["stream_microphone"](
+        duration=10.0,
+        auto_playback=False,
+        verbose=False
+    )
+
+    # Report results
+    print("\n📊 Event Handler Test Results:")
+    for event_type, count in events_received.items():
+        status = "✅" if count > 0 else "❌"
+        print(f"   {status} {event_type}: {count}")
+
+    await sdk["disconnect"]()
+    sdk["cleanup"]()
+
+asyncio.run(test_event_handlers())
+```
+
+### 6. Validate All Controls Are Working
+
+Run this comprehensive test to verify everything:
+
+```bash
+# Create a test script
+cat > test_all_controls.py << 'EOF'
+import asyncio
+from vocals import create_vocals
+
+async def comprehensive_test():
+    """Comprehensive test of all SDK controls"""
+    print("🧪 Comprehensive SDK Control Test")
+    print("=" * 50)
+
+    # Test 1: Default mode
+    print("\n1️⃣ Testing Default Mode...")
+    sdk1 = create_vocals()
+    await sdk1["stream_microphone"](duration=5.0, verbose=False)
+    await sdk1["disconnect"]()
+    sdk1["cleanup"]()
+    print("✅ Default mode test completed")
+
+    # Test 2: Controlled mode
+    print("\n2️⃣ Testing Controlled Mode...")
+    sdk2 = create_vocals(modes=['transcription', 'voice_assistant'])
+
+    message_count = 0
+    def counter(message):
+        nonlocal message_count
+        message_count += 1
+        if message.type == "tts_audio":
+            asyncio.create_task(sdk2["play_audio"]())
+
+    sdk2["on_message"](counter)
+    await sdk2["stream_microphone"](duration=5.0, auto_playback=False, verbose=False)
+    await sdk2["disconnect"]()
+    sdk2["cleanup"]()
+    print(f"✅ Controlled mode test completed - {message_count} messages")
+
+    # Test 3: All controls
+    print("\n3️⃣ Testing Individual Controls...")
+    sdk3 = create_vocals()
+
+    # Test getters
+    print(f"   Connection state: {sdk3['get_connection_state']().name}")
+    print(f"   Is connected: {sdk3['get_is_connected']()}")
+    print(f"   Recording state: {sdk3['get_recording_state']().name}")
+    print(f"   Is recording: {sdk3['get_is_recording']()}")
+    print(f"   Playback state: {sdk3['get_playback_state']().name}")
+    print(f"   Is playing: {sdk3['get_is_playing']()}")
+    print(f"   Queue length: {len(sdk3['get_audio_queue']())}")
+    print(f"   Current amplitude: {sdk3['get_current_amplitude']()}")
+
+    await sdk3["disconnect"]()
+    sdk3["cleanup"]()
+    print("✅ All controls test completed")
+
+    print("\n🎉 All tests completed successfully!")
+
+if __name__ == "__main__":
+    asyncio.run(comprehensive_test())
+EOF
+
+# Run the test
+python test_all_controls.py
+```
+
+This comprehensive testing suite will validate that all your controls are working properly after our recent fixes!
 
 ## CLI Tools
 
