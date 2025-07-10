@@ -2,7 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/vocals.svg)](https://badge.fury.io/py/vocals)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub issues](https://img.shields.io/github/issues/vocals/vocals-sdk-python)](https://github.com/vocals/vocals-sdk-python/issues)
+[![GitHub issues](https://img.shields.io/github/issues/hairetsucodes/vocals-sdk-python)](https://github.com/hairetsucodes/vocals-sdk-python/issues)
 
 A Python SDK for voice processing and real-time audio communication with AI assistants. Stream microphone input or audio files to receive live transcription, AI responses, and text-to-speech audio.
 
