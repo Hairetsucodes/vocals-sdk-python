@@ -577,6 +577,7 @@ async def advanced_voice_assistant():
     
     # Create SDK with specific modes for controlled experience
     # Using modes disables all automatic handlers - we have complete control
+    # This prevents duplicate message processing that would occur with default handlers
     sdk = create_vocals(modes=['transcription', 'voice_assistant'])
     
     # Custom state tracking for conversation flow
@@ -608,7 +609,7 @@ async def advanced_voice_assistant():
             is_complete = message.data.get("is_complete", False)
             
             if not conversation_state['processing']:
-                print("\\n🤖 AI thinking: ", end="", flush=True)
+                print("\\n💭 AI Thinking: ", end="", flush=True)
                 conversation_state['processing'] = True
                 
             if token:

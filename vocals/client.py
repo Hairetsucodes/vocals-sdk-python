@@ -466,10 +466,14 @@ def create_vocals(
             # In default mode, the enhanced handler is already attached
             message_handler = None
             if modes:  # Only in controlled mode
+                # Use a simplified handler for stats only, disable text display to avoid duplication
+                # with custom user handlers
                 message_handler = create_microphone_message_handler(
                     stats_tracker,
                     verbose,
                     audio_processor=audio_processor if auto_playback else None,
+                    show_text=False,  # Disable built-in text display in controlled mode
+                    show_streaming=False,  # Disable built-in streaming display
                 )
             elif stats_tracking:  # Default mode with stats tracking
                 # Add stats tracking handler for default mode
