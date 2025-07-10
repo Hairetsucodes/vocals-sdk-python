@@ -429,11 +429,25 @@ def create_vocals(
 
             # Connect if not connected
             if auto_connect and not websocket_client["get_is_connected"]():
-                if verbose:
-                    logger.info("Connecting to WebSocket...")
-                await connect()
-                # Give it a moment to establish connection
-                await asyncio.sleep(1)
+                # Wait a bit for any existing connection attempts to complete
+                if websocket_client["get_is_connecting"]():
+                    if verbose:
+                        logger.info("Waiting for existing connection attempt...")
+                    # Wait up to 3 seconds for connection to complete
+                    for _ in range(30):  # 30 * 0.1 = 3 seconds
+                        await asyncio.sleep(0.1)
+                        if websocket_client["get_is_connected"]():
+                            break
+                        if not websocket_client["get_is_connecting"]():
+                            break  # Connection attempt failed
+
+                # Only connect if still not connected
+                if not websocket_client["get_is_connected"]():
+                    if verbose:
+                        logger.info("Connecting to WebSocket...")
+                    await connect()
+                    # Give it a moment to establish connection
+                    await asyncio.sleep(1)
 
             # Verify connection
             if not websocket_client["get_is_connected"]():
@@ -442,9 +456,22 @@ def create_vocals(
                 )
 
             # Set up optimized handlers
-            message_handler = create_microphone_message_handler(
-                stats_tracker, verbose, audio_processor=audio_processor
-            )
+            # Only add microphone message handler if we're in controlled mode
+            # In default mode, the enhanced handler is already attached
+            message_handler = None
+            if modes:  # Only in controlled mode
+                message_handler = create_microphone_message_handler(
+                    stats_tracker, verbose, audio_processor=audio_processor
+                )
+            elif auto_playback:  # Default mode with auto_playback - need TTS handling
+                # Simple handler for TTS auto-playback in default mode
+                def simple_tts_handler(message):
+                    if message.type == "tts_audio" and message.data:
+                        # Auto-start playback if not already playing
+                        if not audio_processor["get_is_playing"]():
+                            asyncio.create_task(audio_processor["play_audio"]())
+
+                message_handler = simple_tts_handler
             connection_handler = create_microphone_connection_handler(
                 stats_tracker, verbose
             )
@@ -453,9 +480,11 @@ def create_vocals(
             )
 
             # Register microphone-specific handlers (they'll handle TTS display)
-            remove_message_handler = websocket_client["add_message_handler"](
-                message_handler
-            )
+            remove_message_handler = None
+            if message_handler:  # Only if we created one
+                remove_message_handler = websocket_client["add_message_handler"](
+                    message_handler
+                )
             remove_connection_handler = websocket_client["add_connection_handler"](
                 connection_handler
             )
@@ -572,7 +601,8 @@ def create_vocals(
                         pass
 
                 # Cleanup handlers
-                remove_message_handler()
+                if remove_message_handler:
+                    remove_message_handler()
                 remove_connection_handler()
                 remove_audio_handler()
 
