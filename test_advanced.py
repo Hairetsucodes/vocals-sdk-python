@@ -2,6 +2,13 @@
 """
 Advanced Voice Assistant Template
 Full control over voice assistant behavior using controlled mode
+
+This template demonstrates two approaches for handling audio:
+1. Built-in audio playback (default) - uses SDK's built-in audio player
+2. Custom audio processing - process audio segments with your own function
+
+To switch between approaches, comment/uncomment the relevant sections
+in the tts_audio message handler.
 """
 
 import asyncio
@@ -61,8 +68,37 @@ async def advanced_voice_assistant():
             if text and not conversation_state["speaking"]:
                 print(f"🔊 AI speaking: {text}")
                 conversation_state["speaking"] = True
+
+                # OPTION 1: Use built-in audio playback (current approach)
                 # Manually trigger playback since auto_playback=False
                 asyncio.create_task(sdk["play_audio"]())
+
+                # OPTION 2: Process audio queue with custom handler (new approach)
+                # Uncomment the lines below to use custom audio processing instead
+                # def my_custom_audio_handler(segment):
+                #     print(f"🎵 Custom processing: {segment.text}")
+                #     # Here you can:
+                #     # - Save audio to file
+                #     # - Send to external audio player
+                #     # - Convert audio format
+                #     # - Analyze audio data
+                #     # - Or any other custom processing
+                #
+                #     # Example: Save to file
+                #     # import base64
+                #     # audio_data = base64.b64decode(segment.audio_data)
+                #     # filename = f"audio_{segment.segment_id}.wav"
+                #     # with open(filename, 'wb') as f:
+                #     #     f.write(audio_data)
+                #     # print(f"💾 Saved to: {filename}")
+                #     pass
+                #
+                # # Process audio queue with custom handler
+                # processed_count = sdk["process_audio_queue"](
+                #     my_custom_audio_handler,
+                #     consume_all=True
+                # )
+                # print(f"✅ Processed {processed_count} audio segments")
 
         elif message.type == "speech_interruption":
             print("\n🛑 Speech interrupted")

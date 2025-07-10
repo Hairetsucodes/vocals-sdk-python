@@ -257,6 +257,32 @@ def create_vocals(
         """Add an audio segment to the playback queue"""
         audio_processor["add_to_queue"](segment)
 
+    def process_audio_queue(
+        callback: Callable[[TTSAudioSegment], None], consume_all: bool = False
+    ) -> int:
+        """
+        Process audio segments from the queue by sending them to a user-provided callback function.
+
+        This allows users to handle audio segments themselves instead of using the built-in playback.
+
+        Args:
+            callback: Function to call with each audio segment. Should accept a TTSAudioSegment.
+            consume_all: If True, processes all segments in the queue. If False, processes only the next segment.
+
+        Returns:
+            Number of segments processed
+
+        Example:
+            def my_audio_handler(segment: TTSAudioSegment):
+                # Custom audio processing
+                print(f"Received audio: {segment.text}")
+                # Send to custom player, save to file, etc.
+
+            count = vocals["process_audio_queue"](my_audio_handler, consume_all=True)
+            print(f"Processed {count} audio segments")
+        """
+        return audio_processor["process_queue"](callback, consume_all)
+
     # Messaging methods
     async def send_message(message: WebSocketMessage) -> None:
         """Send a message to the WebSocket server"""
@@ -722,6 +748,7 @@ def create_vocals(
             "clear_queue": clear_queue,
             "add_to_queue": add_to_queue,
             "send_message": send_message,
+            "process_audio_queue": process_audio_queue,
             "on_message": on_message,
             "on_connection_change": on_connection_change,
             "on_error": on_error,
@@ -770,6 +797,7 @@ def create_vocals(
         "clear_queue": clear_queue,
         "add_to_queue": add_to_queue,
         "send_message": send_message,
+        "process_audio_queue": process_audio_queue,
         "stream_audio_file": stream_audio_file,
         "stream_microphone": stream_microphone,
         "on_message": on_message,

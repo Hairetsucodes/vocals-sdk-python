@@ -380,6 +380,46 @@ def create_audio_processor(config: Optional[AudioConfig] = None):
         """Get whether automatic playback is enabled"""
         return state["auto_playback"]
 
+    def process_queue(
+        callback: Callable[[TTSAudioSegment], None], consume_all: bool = False
+    ) -> int:
+        """
+        Process audio segments from the queue using a custom callback function.
+
+        Args:
+            callback: Function to call with each audio segment
+            consume_all: If True, processes all segments in the queue. If False, processes only the next segment.
+
+        Returns:
+            Number of segments processed
+        """
+        processed_count = 0
+
+        try:
+            if consume_all:
+                # Process all segments in the queue
+                while state["audio_queue"]:
+                    segment = state["audio_queue"].popleft()
+                    callback(segment)
+                    processed_count += 1
+            else:
+                # Process only the next segment
+                if state["audio_queue"]:
+                    segment = state["audio_queue"].popleft()
+                    callback(segment)
+                    processed_count += 1
+
+            if processed_count > 0:
+                logger.debug(f"Processed {processed_count} audio segments via callback")
+
+        except Exception as e:
+            error = _create_error(
+                f"Error processing queue: {str(e)}", "QUEUE_PROCESSING_ERROR"
+            )
+            _handle_error(error)
+
+        return processed_count
+
     # Return the audio processor interface
     return {
         "start_recording": start_recording,
@@ -402,6 +442,7 @@ def create_audio_processor(config: Optional[AudioConfig] = None):
         "get_current_amplitude": get_current_amplitude,
         "set_auto_playback": set_auto_playback,
         "get_auto_playback": get_auto_playback,
+        "process_queue": process_queue,
     }
 
 

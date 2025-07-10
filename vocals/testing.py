@@ -338,20 +338,20 @@ class VocalsSDKTester:
 
             # Test token generation
             token_result = generate_ws_token()
-            if not hasattr(token_result, "data"):
+            try:
+                token = token_result.data  # type: ignore
+                self._add_result(
+                    "Token Generation",
+                    True,
+                    f"Token generated, expires at: {token.expires_at}",
+                )
+            except AttributeError:
                 self._add_result(
                     "Token Generation",
                     False,
                     f"Token generation failed",
                 )
                 return False
-
-            token = token_result.data
-            self._add_result(
-                "Token Generation",
-                True,
-                f"Token generated, expires at: {token.expires_at}",
-            )
             return True
 
         except Exception as e:

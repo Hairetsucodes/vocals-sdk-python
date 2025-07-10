@@ -159,6 +159,22 @@ run_microphone_example() {
     python3 example_microphone_streaming.py
 }
 
+# Function to run custom audio processing example
+run_custom_audio_example() {
+    print_info "Running Custom Audio Processing Example..."
+    
+    if [ ! -f "example_process_audio_queue.py" ]; then
+        print_error "example_process_audio_queue.py not found"
+        return 1
+    fi
+    
+    print_info "Starting custom audio processing example..."
+    print_info "This example shows how to handle audio segments with custom processing"
+    print_info "Press Ctrl+C to stop"
+    
+    python3 example_process_audio_queue.py
+}
+
 # Function to show usage
 show_usage() {
     echo "Usage: $0 [OPTION]"
@@ -166,12 +182,14 @@ show_usage() {
     echo "Options:"
     echo "  file        Run the file playback example"
     echo "  mic         Run the microphone streaming example"
+    echo "  custom      Run the custom audio processing example"
     echo "  setup       Setup environment and dependencies only"
     echo "  help        Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 file     # Run file playback example"
     echo "  $0 mic      # Run microphone streaming example"
+    echo "  $0 custom   # Run custom audio processing example"
     echo "  $0 setup    # Setup environment only"
 }
 
@@ -187,6 +205,7 @@ setup_environment() {
     print_info "You can now run the examples:"
     print_info "  $0 file    # File playback example"
     print_info "  $0 mic     # Microphone streaming example"
+    print_info "  $0 custom  # Custom audio processing example"
 }
 
 # Main script logic
@@ -208,6 +227,10 @@ main() {
         "mic")
             setup_environment
             run_microphone_example
+            ;;
+        "custom")
+            setup_environment
+            run_custom_audio_example
             ;;
         "setup")
             setup_environment
