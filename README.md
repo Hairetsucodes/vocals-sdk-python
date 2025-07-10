@@ -405,6 +405,142 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### Custom Audio Processing (Alternative to Local Playback)
+
+Instead of playing audio locally, you can process audio segments with custom handlers - perfect for saving audio files, sending to external players, or implementing custom audio processing:
+
+```python
+import asyncio
+import base64
+from vocals import create_vocals
+
+async def main():
+    """Advanced voice assistant with custom audio processing"""
+
+    # Create SDK with controlled mode for manual audio handling
+    sdk = create_vocals(modes=["transcription", "voice_assistant"])
+
+    # Custom state tracking
+    conversation_state = {"listening": False, "processing": False, "speaking": False}
+
+    def handle_messages(message):
+        """Custom message handler with audio processing control"""
+
+        if message.type == "transcription" and message.data:
+            text = message.data.get("text", "")
+            is_partial = message.data.get("is_partial", False)
+
+            if is_partial:
+                print(f"\r🎤 Listening: {text}...", end="", flush=True)
+            else:
+                print(f"\n✅ You said: {text}")
+
+        elif message.type == "llm_response_streaming" and message.data:
+            token = message.data.get("token", "")
+            is_complete = message.data.get("is_complete", False)
+
+            if token:
+                print(token, end="", flush=True)
+            if is_complete:
+                print()  # New line
+
+        elif message.type == "tts_audio" and message.data:
+            text = message.data.get("text", "")
+            if text and not conversation_state["speaking"]:
+                print(f"🔊 AI speaking: {text}")
+                conversation_state["speaking"] = True
+
+                # Custom audio processing instead of local playback
+                def custom_audio_handler(segment):
+                    """Process each audio segment with custom logic"""
+                    print(f"🎵 Processing audio: {segment.text}")
+
+                    # Option 1: Save to file
+                    audio_data = base64.b64decode(segment.audio_data)
+                    filename = f"audio_{segment.segment_id}.wav"
+                    with open(filename, "wb") as f:
+                        f.write(audio_data)
+                    print(f"💾 Saved audio to: {filename}")
+
+                    # Option 2: Send to external audio player
+                    # subprocess.run(["ffplay", "-nodisp", "-autoexit", filename])
+
+                    # Option 3: Stream to audio device
+                    # your_audio_device.play(audio_data)
+
+                    # Option 4: Convert format
+                    # converted_audio = convert_audio_format(audio_data, target_format)
+
+                    # Option 5: Process with AI/ML
+                    # audio_features = extract_audio_features(audio_data)
+                    # emotion_score = analyze_emotion(audio_features)
+
+                # Process all available audio segments
+                processed_count = sdk["process_audio_queue"](
+                    custom_audio_handler,
+                    consume_all=True
+                )
+                print(f"✅ Processed {processed_count} audio segments")
+
+        elif message.type == "speech_interruption":
+            print("\n🛑 Speech interrupted")
+            conversation_state["speaking"] = False
+
+    # Register message handler
+    sdk["on_message"](handle_messages)
+
+    # Connection handler
+    def handle_connection(state):
+        if state.name == "CONNECTED":
+            print("✅ Connected to voice assistant")
+        elif state.name == "DISCONNECTED":
+            print("❌ Disconnected from voice assistant")
+
+    sdk["on_connection_change"](handle_connection)
+
+    try:
+        print("🎤 Voice Assistant with Custom Audio Processing")
+        print("Audio will be saved to files instead of played locally")
+        print("Speak into your microphone...")
+        print("Press Ctrl+C to stop")
+
+        # Stream microphone with custom audio handling
+        await sdk["stream_microphone"](
+            duration=0,           # Infinite recording
+            auto_connect=True,    # Auto-connect to service
+            auto_playback=False,  # Disable automatic playback - we handle it
+            verbose=False,        # Clean output
+        )
+
+    except KeyboardInterrupt:
+        print("\n👋 Custom audio processing stopped")
+    finally:
+        await sdk["disconnect"]()
+        sdk["cleanup"]()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**Key Features of Custom Audio Processing:**
+
+- 🎛️ **Full Control**: Complete control over audio handling instead of automatic playback
+- 💾 **Save to Files**: Save audio segments as individual WAV files
+- 🔄 **Format Conversion**: Convert audio to different formats before processing
+- 🎵 **External Players**: Send audio to external audio players or devices
+- 🤖 **AI Processing**: Analyze audio with machine learning models
+- 📊 **Audio Analytics**: Extract features, analyze emotion, or process speech patterns
+- 🔌 **Integration**: Easily integrate with existing audio pipelines
+
+**Use Cases:**
+
+- Recording conversations for later playback
+- Building custom audio players with UI controls
+- Streaming audio to multiple devices simultaneously
+- Processing audio with AI/ML models for analysis
+- Converting audio formats for different platforms
+- Creating audio archives or transcription systems
+
 ## Configuration
 
 ### Environment Variables
