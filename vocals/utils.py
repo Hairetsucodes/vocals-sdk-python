@@ -786,8 +786,11 @@ def create_microphone_message_handler(
                     # Add to audio queue
                     audio_processor["add_to_queue"](segment)
 
-                    # Auto-start playback if not already playing
-                    if not audio_processor["get_is_playing"]():
+                    # Auto-start playback if not already playing AND auto_playback is enabled
+                    if (
+                        audio_processor["get_auto_playback"]()
+                        and not audio_processor["get_is_playing"]()
+                    ):
                         try:
                             # Create a task for playback
                             loop = asyncio.get_running_loop()

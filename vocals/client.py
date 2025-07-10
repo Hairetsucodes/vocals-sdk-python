@@ -468,10 +468,12 @@ def create_vocals(
             if modes:  # Only in controlled mode
                 # Use a simplified handler for stats only, disable text display to avoid duplication
                 # with custom user handlers
+                # Always pass audio_processor to ensure TTS audio is added to queue
+                # auto_playback only controls whether playback starts automatically
                 message_handler = create_microphone_message_handler(
                     stats_tracker,
                     verbose,
-                    audio_processor=audio_processor if auto_playback else None,
+                    audio_processor=audio_processor,  # Always pass audio_processor
                     show_text=False,  # Disable built-in text display in controlled mode
                     show_streaming=False,  # Disable built-in streaming display
                 )
