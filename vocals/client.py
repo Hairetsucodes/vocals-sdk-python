@@ -75,7 +75,9 @@ def create_vocals(
             if (
                 message.type == "tts_audio"
                 and message.data
-                and not microphone_streaming_active
+                and (
+                    not microphone_streaming_active or not modes
+                )  # Always handle in default mode
             ):
                 # Convert to TTSAudioSegment
                 segment_data = message.data
@@ -463,15 +465,18 @@ def create_vocals(
                 message_handler = create_microphone_message_handler(
                     stats_tracker, verbose, audio_processor=audio_processor
                 )
-            elif auto_playback:  # Default mode with auto_playback - need TTS handling
-                # Simple handler for TTS auto-playback in default mode
-                def simple_tts_handler(message):
-                    if message.type == "tts_audio" and message.data:
-                        # Auto-start playback if not already playing
-                        if not audio_processor["get_is_playing"]():
-                            asyncio.create_task(audio_processor["play_audio"]())
+            elif stats_tracking:  # Default mode with stats tracking
+                # Add stats tracking handler for default mode
+                def stats_handler(message):
+                    if stats_tracker:  # Null check
+                        if message.type == "transcription" and message.data:
+                            stats_tracker["update"]("transcriptions")
+                        elif message.type == "llm_response" and message.data:
+                            stats_tracker["update"]("responses")
+                        elif message.type == "tts_audio" and message.data:
+                            stats_tracker["update"]("tts_segments_received")
 
-                message_handler = simple_tts_handler
+                message_handler = stats_handler
             connection_handler = create_microphone_connection_handler(
                 stats_tracker, verbose
             )

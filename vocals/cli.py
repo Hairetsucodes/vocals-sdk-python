@@ -49,14 +49,10 @@ def demo(duration, verbose, stats, device):
             logging.getLogger("vocals").setLevel(logging.WARNING)
 
         try:
-            # Create SDK with auto_connect disabled to prevent double connection
-            from vocals.config import get_default_config
-
-            config = get_default_config()
-            config.auto_connect = False  # Let stream_microphone handle connection
-            sdk = create_vocals(
-                config=config
-            )  # No modes = full auto-contained experience
+            # Create SDK with pure default experience - fully self-contained
+            sdk = (
+                create_vocals()
+            )  # No modes, no config changes = full auto-contained experience
 
             # TODO: Override audio device if specified
             if device is not None:
