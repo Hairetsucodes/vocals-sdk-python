@@ -628,9 +628,11 @@ async def advanced_voice_assistant():
                 
         elif message.type == "tts_audio" and message.data:
             text = message.data.get("text", "")
-            if text and not conversation_state['speaking']:
-                print(f"🔊 AI speaking: {text}")
-                conversation_state['speaking'] = True
+            if text:
+                # Only print the speaking message once per response
+                if not conversation_state['speaking']:
+                    print(f"🔊 AI speaking: {text}")
+                    conversation_state['speaking'] = True
                 
                 # OPTION 1: Use built-in audio playback (current approach)
                 # Manually trigger playback since auto_playback=False
@@ -654,7 +656,6 @@ async def advanced_voice_assistant():
                 #     # with open(filename, 'wb') as f:
                 #     #     f.write(audio_data)
                 #     # print(f"💾 Saved to: {filename}")
-                #     pass
                 # 
                 # # Process audio queue with custom handler
                 # processed_count = sdk["process_audio_queue"](
