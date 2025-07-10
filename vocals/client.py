@@ -96,6 +96,7 @@ def create_vocals(
                 audio_processor["add_to_queue"](segment)
 
                 # Auto-start playback if not already playing (default experience only)
+                # In controlled mode, the audio processor's auto_playback setting will handle this
                 if not modes and not audio_processor["get_is_playing"]():
                     asyncio.create_task(audio_processor["play_audio"]())
 
@@ -421,6 +422,9 @@ def create_vocals(
             nonlocal microphone_streaming_active
             microphone_streaming_active = True
 
+            # Set auto_playback flag on audio processor
+            audio_processor["set_auto_playback"](auto_playback)
+
             if verbose:
                 logger.info(f"🎤 Starting microphone streaming for {duration}s...")
 
@@ -463,7 +467,9 @@ def create_vocals(
             message_handler = None
             if modes:  # Only in controlled mode
                 message_handler = create_microphone_message_handler(
-                    stats_tracker, verbose, audio_processor=audio_processor
+                    stats_tracker,
+                    verbose,
+                    audio_processor=audio_processor if auto_playback else None,
                 )
             elif stats_tracking:  # Default mode with stats tracking
                 # Add stats tracking handler for default mode
@@ -618,6 +624,8 @@ def create_vocals(
         finally:
             # Reset flag to allow default handler to process TTS messages again
             microphone_streaming_active = False
+            # Reset auto_playback to default
+            audio_processor["set_auto_playback"](True)
 
     # Event handler registration methods
     def on_message(handler: MessageHandler) -> Callable[[], None]:

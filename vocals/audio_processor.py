@@ -67,6 +67,7 @@ def create_audio_processor(config: Optional[AudioConfig] = None):
         "stop_playback_event": threading.Event(),
         "audio_data_handlers": [],
         "error_handlers": [],
+        "auto_playback": True,  # Default to True for backward compatibility
     }
 
     def _create_error(message: str, code: str = "AUDIO_ERROR") -> VocalsError:
@@ -176,8 +177,8 @@ def create_audio_processor(config: Optional[AudioConfig] = None):
         state["audio_queue"].append(segment)
         logger.debug(f"Added audio segment to queue: {segment.segment_id}")
 
-        # Auto-start playback if not already playing
-        if not state["is_playing"]:
+        # Auto-start playback if not already playing and auto_playback is enabled
+        if state["auto_playback"] and not state["is_playing"]:
             _start_playback_thread()
 
     def clear_queue() -> None:
@@ -371,6 +372,14 @@ def create_audio_processor(config: Optional[AudioConfig] = None):
     def get_current_amplitude() -> float:
         return state["current_amplitude"]
 
+    def set_auto_playback(enabled: bool) -> None:
+        """Set whether to automatically start playback when audio is added to queue"""
+        state["auto_playback"] = enabled
+
+    def get_auto_playback() -> bool:
+        """Get whether automatic playback is enabled"""
+        return state["auto_playback"]
+
     # Return the audio processor interface
     return {
         "start_recording": start_recording,
@@ -391,6 +400,8 @@ def create_audio_processor(config: Optional[AudioConfig] = None):
         "get_audio_queue": get_audio_queue,
         "get_current_segment": get_current_segment,
         "get_current_amplitude": get_current_amplitude,
+        "set_auto_playback": set_auto_playback,
+        "get_auto_playback": get_auto_playback,
     }
 
 
