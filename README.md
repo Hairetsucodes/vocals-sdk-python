@@ -1,5 +1,9 @@
 # Vocals SDK Python
 
+[![PyPI version](https://badge.fury.io/py/vocals.svg)](https://badge.fury.io/py/vocals)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub issues](https://img.shields.io/github/issues/vocals/vocals-sdk-python)](https://github.com/vocals/vocals-sdk-python/issues)
+
 A Python SDK for voice processing and real-time audio communication with AI assistants. Stream microphone input or audio files to receive live transcription, AI responses, and text-to-speech audio.
 
 ## Features
@@ -12,6 +16,22 @@ A Python SDK for voice processing and real-time audio communication with AI assi
 - 📊 **Conversation tracking** and session statistics
 - 🚀 **Easy setup** with minimal configuration required
 - 🔄 **Auto-reconnection** and robust error handling
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Advanced Usage](#advanced-usage)
+- [Configuration](#configuration)
+- [API Reference](#api-reference)
+- [CLI Tools](#cli-tools)
+- [Error Handling](#error-handling)
+- [Troubleshooting](#troubleshooting)
+- [Examples](#examples)
+- [Contributing](#contributing)
+- [Support](#support)
+- [License](#license)
 
 ## Installation
 
@@ -472,17 +492,40 @@ async def main():
 
    - Set environment variable: `export VOCALS_DEV_API_KEY="your_key"`
    - Or create `.env` file with the key
+   - Ensure the .env file is loaded (e.g., using python-dotenv if needed)
 
 2. **"Connection failed"**
 
    - Check your internet connection
    - Verify API key is valid
    - Check WebSocket endpoint is accessible
+   - Try increasing reconnect attempts in config
 
 3. **"No audio input detected"**
+
    - Check microphone permissions
-   - Verify microphone is working
-   - Adjust `amplitude_threshold` parameter
+   - Verify microphone is working (use `vocals devices` to list devices)
+   - Adjust `amplitude_threshold` parameter lower (e.g., 0.005)
+   - Test with `vocals test-device <id>`
+
+4. **Audio playback issues**
+
+   - Ensure speakers/headphones are connected
+   - Check system audio settings
+   - Try different audio formats or sample rates in AudioConfig
+
+5. **High latency**
+
+   - Check network speed
+   - Reduce buffer_size in AudioConfig
+   - Ensure no other apps are using high bandwidth
+
+6. **Dependency errors**
+   - Run `pip install -r requirements.txt` again
+   - For Linux: Ensure portaudio is installed
+   - Try creating a fresh virtual environment
+
+If issues persist, run `vocals diagnose` and share the output when reporting bugs.
 
 ### Debug Mode
 
@@ -505,6 +548,20 @@ Check out the included examples:
 - [`examples/example_microphone_streaming.py`](examples/example_microphone_streaming.py) - Comprehensive microphone streaming examples
 - [`examples/example_file_playback.py`](examples/example_file_playback.py) - Audio file playback examples
 - [`examples/run_examples.sh`](examples/run_examples.sh) - Script to run examples with proper setup
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+For major changes, please open an issue first to discuss what you would like to change.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details (feel free to create one if it doesn't exist).
 
 ## Support
 
