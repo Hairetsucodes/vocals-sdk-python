@@ -20,7 +20,6 @@ A Python SDK for voice processing and real-time audio communication with AI assi
 - 🔄 **Auto-reconnection** and robust error handling
 - 🎛️ **Class-based API** with modern Python patterns
 - 🔀 **Context manager support** for automatic cleanup
-- 🔌 **Backward compatibility** with functional interface
 
 ## Table of Contents
 
@@ -29,7 +28,6 @@ A Python SDK for voice processing and real-time audio communication with AI assi
 - [Quick Start](#quick-start)
 - [SDK Modes](#sdk-modes)
 - [Advanced Usage](#advanced-usage)
-- [Backward Compatibility](#backward-compatibility)
 - [Configuration](#configuration)
 - [Complete API Reference](#complete-api-reference)
 - [Testing Your Setup](#testing-your-setup)
@@ -110,7 +108,7 @@ VOCALS_DEV_API_KEY=your_api_key_here
 
 ### 2. Basic Usage
 
-The Vocals SDK provides a modern **class-based API** as the primary interface, with full backward compatibility for the functional approach.
+The Vocals SDK provides a modern **class-based API** as the primary interface
 
 #### Microphone Streaming (Minimal Example)
 
@@ -579,29 +577,6 @@ if __name__ == "__main__":
 - Converting audio formats for different platforms
 - Creating audio archives or transcription systems
 
-## Backward Compatibility
-
-The SDK maintains backward compatibility with the functional approach through the `create_vocals()` function:
-
-```python
-from vocals import create_vocals
-
-# Functional approach (backward compatibility)
-sdk = create_vocals()
-await sdk.stream_microphone(duration=10.0)
-await sdk.disconnect()
-sdk.cleanup()
-
-# This is equivalent to the class-based approach:
-from vocals import VocalsClient
-
-client = VocalsClient()
-async with client:
-    await client.stream_microphone(duration=10.0)
-```
-
-**Note:** The `create_vocals()` function returns a `VocalsClient` instance, so all the same methods and properties are available. The functional approach is maintained for backward compatibility, but the class-based approach is recommended for new projects.
-
 ## Configuration
 
 ### Environment Variables
@@ -675,7 +650,6 @@ The Vocals SDK provides comprehensive control over voice processing, connection 
 ### Core Functions
 
 - `VocalsClient(config?, audio_config?, user_id?, modes?)` - Create client instance
-- `create_vocals(config?, audio_config?, user_id?, modes?)` - Create client instance (backward compatibility)
 - `get_default_config()` - Get default configuration
 - `AudioConfig(...)` - Audio configuration class
 

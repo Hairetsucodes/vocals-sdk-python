@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced example script demonstrating real-time microphone streaming through Vocals SDK.
+Enhanced example script demonstrating real-time microphone streaming through Vocals client
 This version uses the new class-based SDK API with enhanced text handling for both 
 transcription and LLM responses.
 """

@@ -67,7 +67,7 @@ def create_audio_processor(config: Optional[AudioConfig] = None):
         "stop_playback_event": threading.Event(),
         "audio_data_handlers": [],
         "error_handlers": [],
-        "auto_playback": True,  # Default to True for backward compatibility
+        "auto_playback": True,  # Default to True
     }
 
     def _create_error(message: str, code: str = "AUDIO_ERROR") -> VocalsError:

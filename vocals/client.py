@@ -31,7 +31,7 @@ class VocalsClient:
     """
     Vocals SDK client for voice processing and real-time audio communication.
 
-    This class provides the same functionality as the functional create_vocals approach
+    This class provides the same functionality as the functional VocalsClient approach
     but uses a class-based structure for better Python developer experience.
 
     Args:
@@ -794,33 +794,3 @@ class VocalsClient:
         """Clean up resources."""
         self.audio_processor["cleanup"]()
         # WebSocket client cleanup is handled by disconnect
-
-
-# Backward compatibility: create_vocals function that returns a VocalsClient instance
-def create_vocals(
-    config: Optional[VocalsConfig] = None,
-    audio_config: Optional[AudioConfig] = None,
-    user_id: Optional[str] = None,
-    modes: List[str] = [],
-) -> VocalsClient:
-    """
-    Create a Vocals SDK instance for voice processing and real-time audio communication.
-
-    This function provides backward compatibility with the functional approach
-    by returning a VocalsClient instance.
-
-    Args:
-        config: Configuration options for the SDK
-        audio_config: Audio processing configuration
-        user_id: Optional user ID for token generation
-        modes: List of modes to control SDK behavior
-
-    Returns:
-        VocalsClient instance
-    """
-    return VocalsClient(
-        config=config,
-        audio_config=audio_config,
-        user_id=user_id,
-        modes=modes,
-    )

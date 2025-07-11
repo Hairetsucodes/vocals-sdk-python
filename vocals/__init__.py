@@ -5,10 +5,10 @@ A Python SDK for voice processing and real-time audio communication,
 providing both class-based and functional composition patterns for flexibility.
 """
 
-__version__ = "1.0.98"
+__version__ = "1.0.981"
 
 # Primary interfaces - both class-based and functional
-from .client import VocalsClient, create_vocals
+from .client import VocalsClient, VocalsClient
 from .websocket_client import create_websocket_client
 from .audio_processor import create_audio_processor
 from .token_manager import create_token_manager
@@ -94,7 +94,7 @@ from .audio_processor import AudioConfig
 __all__ = [
     # Primary interfaces - both class-based and functional
     "VocalsClient",
-    "create_vocals",
+    "VocalsClient",
     "create_websocket_client",
     "create_audio_processor",
     "create_token_manager",

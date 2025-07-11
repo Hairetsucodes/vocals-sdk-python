@@ -19,7 +19,7 @@ except ImportError:
 
 from .config import VocalsConfig, get_default_config
 from .audio_processor import AudioConfig
-from .client import create_vocals
+from .client import VocalsClient
 
 
 @click.group()
@@ -50,8 +50,8 @@ def demo(duration, verbose, stats, device):
 
         try:
             # Create SDK with pure default experience - fully self-contained
-            sdk = (
-                create_vocals()
+            client = (
+                VocalsClient()
             )  # No modes, no config changes = full auto-contained experience
 
             # TODO: Override audio device if specified
@@ -63,7 +63,7 @@ def demo(duration, verbose, stats, device):
             print("Press Ctrl+C to stop early")
 
             # Stream microphone
-            session_stats = await sdk.stream_microphone(
+            session_stats = await client.stream_microphone(
                 duration=duration,
                 auto_connect=True,
                 auto_playback=True,
@@ -87,8 +87,8 @@ def demo(duration, verbose, stats, device):
         finally:
             if "sdk" in locals():
                 try:
-                    await sdk.disconnect()
-                    sdk.cleanup()
+                    await client.disconnect()
+                    client.cleanup()
                 except:
                     pass
 
@@ -381,7 +381,7 @@ A simple voice assistant using Vocals SDK
 
 import asyncio
 import logging
-from vocals import create_vocals
+from vocals import VocalsClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -392,7 +392,7 @@ async def voice_assistant():
     
     # Create SDK instance with default full experience
     # No modes = full auto-contained experience with automatic playback
-    sdk = create_vocals()
+    client =VocalsClient()
     
     try:
         print("🎤 Voice Assistant Started")
@@ -400,7 +400,7 @@ async def voice_assistant():
         print("Press Ctrl+C to stop")
         
         # Stream microphone (30 seconds)
-        await sdk.stream_microphone(
+        await clientstream_microphone(
             duration=30,
             auto_connect=True,  # Connects automatically since auto_connect defaults to False
             auto_playback=True,  # AI responses play automatically
@@ -410,8 +410,8 @@ async def voice_assistant():
     except KeyboardInterrupt:
         print("\\n👋 Voice assistant stopped")
     finally:
-        await sdk.disconnect()
-        sdk.cleanup()
+        await clientdisconnect()
+        clientcleanup()
 
 if __name__ == "__main__":
     asyncio.run(voice_assistant())
@@ -425,7 +425,7 @@ Process audio files with Vocals SDK
 import asyncio
 import sys
 from pathlib import Path
-from vocals import create_vocals
+from vocals import VocalsClient
 
 async def process_audio_file(file_path: str):
     """Process an audio file and get AI responses"""
@@ -437,13 +437,13 @@ async def process_audio_file(file_path: str):
     
     # Create SDK instance with default full experience
     # No modes = full auto-contained experience with automatic playback
-    sdk = create_vocals()
+    client =VocalsClient()
     
     try:
         print(f"🎵 Processing file: {file_path}")
         
         # Stream audio file
-        await sdk.stream_audio_file(
+        await clientstream_audio_file(
             file_path=file_path,
             verbose=False,
             auto_connect=True  # Connects automatically since auto_connect defaults to False
@@ -451,7 +451,7 @@ async def process_audio_file(file_path: str):
         
         # Wait for TTS playback to complete (playback is automatic in default mode)
         print("⏳ Waiting for AI response playback...")
-        while sdk.is_playing:
+        while clientis_playing:
             await asyncio.sleep(0.1)
         
         print("✅ File processing completed")
@@ -459,8 +459,8 @@ async def process_audio_file(file_path: str):
     except Exception as e:
         print(f"❌ Error processing file: {e}")
     finally:
-        await sdk.disconnect()
-        sdk.cleanup()
+        await clientdisconnect()
+        clientcleanup()
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -478,7 +478,7 @@ Track and analyze conversation with AI
 
 import asyncio
 from vocals import (
-    create_vocals,
+    VocalsClient,
     create_conversation_tracker,
 )
 
@@ -487,7 +487,7 @@ async def conversation_session():
     
     # Create SDK with controlled experience for custom tracking
     # Using modes disables automatic handlers - we implement custom ones
-    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
+    client =VocalsClient(modes=['transcription', 'voice_assistant'])
     tracker = create_conversation_tracker()
     
     # Custom tracking handler with manual playback control
@@ -509,7 +509,7 @@ async def conversation_session():
             if text:
                 print(f"🔊 Playing: {text}")
                 # Manually start playback since auto_playback=False
-                asyncio.create_task(sdk.play_audio())
+                asyncio.create_task(clientplay_audio())
         
         # Track conversation for analysis
         if message.type == "transcription" and message.data:
@@ -524,7 +524,7 @@ async def conversation_session():
                 tracker["add_response"](response)
     
     # Register our custom handler
-    sdk.on_message(track_conversation)
+    clienton_message(track_conversation)
     
     try:
         print("💬 Conversation Session Started")
@@ -532,7 +532,7 @@ async def conversation_session():
         print("Press Ctrl+C to stop and see analysis")
         
         # Run conversation with manual playback control
-        await sdk.stream_microphone(
+        await clientstream_microphone(
             duration=60,  # 1 minute
             auto_connect=True,  # Connects automatically since auto_connect defaults to False
             auto_playback=False,  # We control playback manually via our handler
@@ -552,8 +552,8 @@ async def conversation_session():
         print(f"   Duration: {stats['duration']:.1f} seconds")
         print(f"   Exchanges: {stats['transcriptions'] + stats['responses']}")
         
-        await sdk.disconnect()
-        sdk.cleanup()
+        await clientdisconnect()
+        clientcleanup()
 
 if __name__ == "__main__":
     asyncio.run(conversation_session())
@@ -573,7 +573,7 @@ in the tts_audio message handler.
 
 import asyncio
 import logging
-from vocals import create_vocals
+from vocals import VocalsClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -585,7 +585,7 @@ async def advanced_voice_assistant():
     # Create SDK with specific modes for controlled experience
     # Using modes disables all automatic handlers - we have complete control
     # This prevents duplicate message processing that would occur with default handlers
-    sdk = create_vocals(modes=['transcription', 'voice_assistant'])
+    client =VocalsClient(modes=['transcription', 'voice_assistant'])
     
     # Custom state tracking for conversation flow
     conversation_state = {
@@ -636,7 +636,7 @@ async def advanced_voice_assistant():
                 
                 # OPTION 1: Use built-in audio playback (current approach)
                 # Manually trigger playback since auto_playback=False
-                asyncio.create_task(sdk.play_audio())
+                asyncio.create_task(clientplay_audio())
                 
                 # OPTION 2: Process audio queue with custom handler (new approach)
                 # Uncomment the lines below to use custom audio processing instead
@@ -658,7 +658,7 @@ async def advanced_voice_assistant():
                 #     # print(f"💾 Saved to: {filename}")
                 # 
                 # # Process audio queue with custom handler
-                # processed_count = sdk.process_audio_queue(
+                # processed_count = clientprocess_audio_queue(
                 #     my_custom_audio_handler, 
                 #     consume_all=True
                 # )
@@ -669,7 +669,7 @@ async def advanced_voice_assistant():
             conversation_state['speaking'] = False
     
     # Register our custom message handler
-    sdk.on_message(handle_messages)
+    clienton_message(handle_messages)
     
     # Custom connection handler
     def handle_connection(state):
@@ -678,7 +678,7 @@ async def advanced_voice_assistant():
         elif state.name == "DISCONNECTED":
             print("❌ Disconnected from voice assistant")
     
-    sdk.on_connection_change(handle_connection)
+    clienton_connection_change(handle_connection)
     
     try:
         print("🎤 Advanced Voice Assistant Started")
@@ -688,7 +688,7 @@ async def advanced_voice_assistant():
         print("Press Ctrl+C to stop")
         
         # Stream microphone with complete manual control
-        await sdk.stream_microphone(
+        await clientstream_microphone(
             duration=0,  # Infinite recording
             auto_connect=True,  # Connects automatically since auto_connect defaults to False
             auto_playback=False,  # We have complete manual control over playback
@@ -698,8 +698,8 @@ async def advanced_voice_assistant():
     except KeyboardInterrupt:
         print("\\n👋 Advanced voice assistant stopped")
     finally:
-        await sdk.disconnect()
-        sdk.cleanup()
+        await clientdisconnect()
+        clientcleanup()
 
 if __name__ == "__main__":
     asyncio.run(advanced_voice_assistant())
@@ -768,12 +768,12 @@ class VocalsSDKTester:
     async def test_connection(self):
         """Test WebSocket connection"""
         try:
-            from .client import create_vocals
+            from .client import VocalsClient
 
-            sdk = create_vocals()
-            await sdk.connect()
-            connected = sdk.is_connected
-            await sdk.disconnect()
+            client = VocalsClient()
+            await client.connect()
+            connected = client.is_connected
+            await client.disconnect()
 
             self.results.append(
                 ("WebSocket Connection", "✅ PASS" if connected else "❌ FAIL")
@@ -786,13 +786,13 @@ class VocalsSDKTester:
     async def test_audio_recording(self):
         """Test audio recording functionality"""
         try:
-            from .client import create_vocals
+            from .client import VocalsClient
 
-            sdk = create_vocals()
-            await sdk.start_recording()
+            client = VocalsClient()
+            await client.start_recording()
             await asyncio.sleep(0.5)
-            recording = sdk.is_recording
-            await sdk.stop_recording()
+            recording = client.is_recording
+            await client.stop_recording()
 
             self.results.append(
                 ("Audio Recording", "✅ PASS" if recording else "❌ FAIL")

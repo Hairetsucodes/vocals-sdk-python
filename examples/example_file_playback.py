@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced example script demonstrating file-based audio playback through Vocals SDK.
+Enhanced example script demonstrating file-based audio playback through Vocals client
 This version uses the new class-based SDK API and enhanced text handling for both 
 transcription and LLM responses.
 """

@@ -310,67 +310,6 @@ async def test_recording_lifecycle():
     return True
 
 
-async def test_backward_compatibility():
-    """Test 8: Backward compatibility with functional API"""
-    print("\n🧪 Test 8: Backward Compatibility")
-    print("=" * 50)
-
-    try:
-        # Test that create_vocals still works
-        from vocals import create_vocals
-
-        client = create_vocals()
-        print(f"✅ create_vocals() works: {type(client).__name__}")
-        print(f"✅ Returns VocalsClient: {isinstance(client, VocalsClient)}")
-
-        # Test that it has all the expected methods and properties
-        methods_to_test = [
-            "connect",
-            "disconnect",
-            "start_recording",
-            "stop_recording",
-            "play_audio",
-            "pause_audio",
-            "stop_audio",
-            "clear_queue",
-            "add_to_queue",
-            "process_audio_queue",
-            "on_message",
-        ]
-
-        properties_to_test = [
-            "is_connected",
-            "is_recording",
-            "is_playing",
-            "connection_state",
-            "recording_state",
-            "playback_state",
-            "audio_queue",
-            "current_amplitude",
-        ]
-
-        for method in methods_to_test:
-            if hasattr(client, method):
-                print(f"✅ Has method: {method}")
-            else:
-                print(f"❌ Missing method: {method}")
-
-        for prop in properties_to_test:
-            if hasattr(client, prop):
-                print(f"✅ Has property: {prop}")
-            else:
-                print(f"❌ Missing property: {prop}")
-
-        client.cleanup()
-        print("✅ Backward compatibility test PASSED")
-
-    except Exception as e:
-        print(f"❌ Backward compatibility test FAILED: {e}")
-        return False
-
-    return True
-
-
 async def test_property_monitoring():
     """Test 9: Real-time property monitoring"""
     print("\n🧪 Test 9: Property Monitoring")
@@ -415,7 +354,6 @@ async def run_all_tests():
         ("Audio Queue Operations", test_audio_queue_operations),
         ("Connection Lifecycle", test_connection_lifecycle),
         ("Recording Lifecycle", test_recording_lifecycle),
-        ("Backward Compatibility", test_backward_compatibility),
         ("Property Monitoring", test_property_monitoring),
     ]
 
@@ -468,7 +406,6 @@ async def interactive_test_menu():
         "5": ("Audio Queue Operations", test_audio_queue_operations),
         "6": ("Connection Lifecycle", test_connection_lifecycle),
         "7": ("Recording Lifecycle", test_recording_lifecycle),
-        "8": ("Backward Compatibility", test_backward_compatibility),
         "9": ("Property Monitoring", test_property_monitoring),
         "a": ("Run All Tests", run_all_tests),
     }

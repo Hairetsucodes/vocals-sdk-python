@@ -362,16 +362,16 @@ class VocalsSDKTester:
     async def test_sdk_creation(self) -> bool:
         """Test SDK creation and basic functionality"""
         try:
-            from .client import create_vocals
+            from .client import VocalsClient
             from .config import get_default_config
 
             # Create config with auto_connect disabled to avoid double connection
             config = get_default_config()
             config.auto_connect = False
-            sdk = create_vocals(config)
+            client = VocalsClient(config)
 
             # Test basic properties
-            if not hasattr(sdk, "__getitem__"):
+            if not hasattr(client, "__getitem__"):
                 self._add_result("SDK Creation", False, "SDK not created as expected")
                 return False
 
@@ -387,19 +387,19 @@ class VocalsSDKTester:
             ]
 
             for method in required_methods:
-                if not hasattr(sdk, method):
+                if not hasattr(client, method):
                     self._add_result("SDK Creation", False, f"Missing method: {method}")
                     return False
 
             # Test connection
-            await sdk.connect()
+            await client.connect()
 
-            if not sdk.is_connected:
+            if not client.is_connected:
                 self._add_result("SDK Creation", False, "SDK failed to connect")
                 return False
 
-            await sdk.disconnect()
-            sdk.cleanup()
+            await client.disconnect()
+            client.cleanup()
 
             self._add_result(
                 "SDK Creation", True, "SDK created and connected successfully"
@@ -413,14 +413,14 @@ class VocalsSDKTester:
     async def test_message_handling(self) -> bool:
         """Test message handling system"""
         try:
-            from .client import create_vocals
+            from .client import VocalsClient
             from .types import WebSocketResponse
             from .config import get_default_config
 
             # Create config with auto_connect disabled to avoid double connection
             config = get_default_config()
             config.auto_connect = False
-            sdk = create_vocals(config)
+            client = VocalsClient(config)
 
             # Test message handler registration
             received_messages = []
@@ -428,7 +428,7 @@ class VocalsSDKTester:
             def test_handler(message):
                 received_messages.append(message)
 
-            remove_handler = sdk.on_message(test_handler)
+            remove_handler = client.on_message(test_handler)
 
             # Simulate a message (this would normally come from WebSocket)
             test_message = WebSocketResponse(
@@ -438,7 +438,7 @@ class VocalsSDKTester:
             # Test handler removal
             remove_handler()
 
-            sdk.cleanup()
+            client.cleanup()
 
             self._add_result("Message Handling", True, "Message handler system working")
             return True
