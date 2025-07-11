@@ -35,8 +35,20 @@ def cli():
 @click.option("--verbose", is_flag=True, help="Enable verbose output")
 @click.option("--stats", is_flag=True, default=True, help="Show session statistics")
 @click.option("--device", type=int, help="Audio device ID to use")
-def demo(duration, verbose, stats, device):
-    """Run a microphone streaming demo"""
+@click.option(
+    "--ui", is_flag=True, help="Launch web UI demo (installs Gradio if needed)"
+)
+def demo(duration, verbose, stats, device, ui):
+    """Run a microphone streaming demo
+
+    Use --ui flag to launch a web-based interface instead of the terminal demo.
+    The web UI will automatically install Gradio if not already installed.
+    """
+
+    if ui:
+        # Launch UI demo
+        run_ui_demo()
+        return
 
     async def run_demo():
         print("🎤 Vocals SDK Demo")
@@ -308,6 +320,73 @@ def diagnose(output):
 
 
 # Helper functions
+def run_ui_demo():
+    """Run the Gradio UI demo"""
+    print("🌐 Launching Vocals SDK Web UI Demo")
+    print("=" * 50)
+
+    # Check if Gradio is installed
+    try:
+        import gradio
+
+        print("✅ Gradio is already installed")
+    except ImportError:
+        print("📦 Gradio not found, installing...")
+
+        # Install Gradio
+        import subprocess
+        import sys
+
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "gradio"])
+            print("✅ Gradio installed successfully")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to install Gradio: {e}")
+            print("Please install Gradio manually: pip install gradio")
+            return
+
+    # Find the Gradio example file
+    example_file = None
+    possible_paths = [
+        "examples/example_gradio_voice_assistant.py",
+        "example_gradio_voice_assistant.py",
+        Path(__file__).parent.parent / "examples" / "example_gradio_voice_assistant.py",
+    ]
+
+    for path in possible_paths:
+        if Path(path).exists():
+            example_file = Path(path)
+            break
+
+    if not example_file:
+        print("❌ Gradio example file not found")
+        print("Expected location: examples/example_gradio_voice_assistant.py")
+        return
+
+    print(f"📂 Found Gradio example: {example_file}")
+    print("🚀 Launching web interface...")
+    print("📱 Your browser should open automatically")
+    print("🎤 Click 'Start Assistant' in the web interface to begin")
+    print("Press Ctrl+C to stop the web server")
+
+    # Launch the Gradio example
+    try:
+        import subprocess
+        import sys
+
+        # Run the Gradio example
+        subprocess.run([sys.executable, str(example_file)], check=True)
+
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Error launching Gradio demo: {e}")
+        print("You can run the demo manually:")
+        print(f"python {example_file}")
+    except KeyboardInterrupt:
+        print("\n👋 Web UI demo stopped by user")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+
+
 def list_audio_devices():
     """List available audio devices"""
     try:
