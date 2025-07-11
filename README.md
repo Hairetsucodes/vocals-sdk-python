@@ -65,6 +65,31 @@ Run a quick demo:
 vocals demo
 ```
 
+### 🌐 Web UI Demo
+
+**NEW!** Launch an interactive web interface to try the voice assistant:
+
+```bash
+vocals demo --ui
+```
+
+This will:
+
+- ✅ **Automatically install Gradio** (if not already installed)
+- 🚀 **Launch a web interface** in your browser
+- 🎤 **Real-time voice interaction** with visual feedback
+- 📱 **Easy-to-use interface** with buttons and live updates
+- 🔊 **Live transcription and AI responses** in the browser
+
+**Perfect for:**
+
+- 🎯 **Quick demonstrations** and testing
+- 👥 **Showing to others** without command line
+- 🖥️ **Visual feedback** and status indicators
+- 📊 **Real-time conversation tracking**
+
+The web UI provides the same functionality as the command line demo but with an intuitive graphical interface that's perfect for demonstrations and interactive testing.
+
 ### System Requirements
 
 - Python 3.8 or higher
