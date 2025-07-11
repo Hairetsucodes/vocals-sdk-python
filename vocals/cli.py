@@ -345,46 +345,450 @@ def run_ui_demo():
             print("Please install Gradio manually: pip install gradio")
             return
 
-    # Find the Gradio example file
-    example_file = None
-    possible_paths = [
-        "examples/example_gradio_voice_assistant.py",
-        "example_gradio_voice_assistant.py",
-        Path(__file__).parent.parent / "examples" / "example_gradio_voice_assistant.py",
-    ]
-
-    for path in possible_paths:
-        if Path(path).exists():
-            example_file = Path(path)
-            break
-
-    if not example_file:
-        print("❌ Gradio example file not found")
-        print("Expected location: examples/example_gradio_voice_assistant.py")
-        return
-
-    print(f"📂 Found Gradio example: {example_file}")
+    # Create and run the Gradio example directly
     print("🚀 Launching web interface...")
     print("📱 Your browser should open automatically")
     print("🎤 Click 'Start Assistant' in the web interface to begin")
     print("Press Ctrl+C to stop the web server")
 
-    # Launch the Gradio example
+    # Launch the Gradio example directly
     try:
-        import subprocess
-        import sys
-
-        # Run the Gradio example
-        subprocess.run([sys.executable, str(example_file)], check=True)
-
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Error launching Gradio demo: {e}")
-        print("You can run the demo manually:")
-        print(f"python {example_file}")
+        launch_gradio_demo()
     except KeyboardInterrupt:
         print("\n👋 Web UI demo stopped by user")
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
+
+
+def launch_gradio_demo():
+    """Launch the embedded Gradio demo"""
+    import asyncio
+    import logging
+    import threading
+    import time
+    from typing import Optional, Generator
+    from concurrent.futures import TimeoutError
+
+    # Import Gradio (should be installed by now)
+    import gradio as gr
+
+    # Import the VocalsClient
+    from .client import VocalsClient
+
+    # Configure logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    class GradioVoiceAssistant:
+        """Voice assistant with Gradio web interface"""
+
+        def __init__(self):
+            self.sdk: Optional[VocalsClient] = None
+            self.conversation_state = {
+                "listening": False,
+                "processing": False,
+                "speaking": False,
+                "connected": False,
+            }
+            self.current_transcription = ""
+            self.current_response = ""
+            self.conversation_log = []
+            self.status_message = "Ready to start"
+            self.running = False
+            self.thread: Optional[threading.Thread] = None
+            self.loop: Optional[asyncio.AbstractEventLoop] = None
+            self.stop_event: Optional[asyncio.Event] = None
+
+        async def initialize_sdk(self):
+            """Initialize the voice assistant SDK"""
+            if self.sdk is None:
+                self.sdk = VocalsClient(modes=["transcription", "voice_assistant"])
+                self.sdk.on_message(self.handle_messages)
+                self.sdk.on_connection_change(self.handle_connection)
+
+        def handle_messages(self, message):
+            """Handle all voice assistant messages"""
+            if not self.running:
+                return
+
+            if message.type == "transcription" and message.data:
+                text = message.data.get("text", "")
+                is_partial = message.data.get("is_partial", False)
+
+                if is_partial:
+                    self.current_transcription = f"🎤 Listening: {text}..."
+                    self.conversation_state["listening"] = True
+                else:
+                    self.current_response = ""
+                    self.current_transcription = f"✅ You said: {text}"
+                    self.conversation_state["listening"] = False
+                    self.conversation_state["processing"] = True
+
+                    if text.strip():
+                        self.conversation_log.append(
+                            {
+                                "type": "user",
+                                "message": text,
+                                "timestamp": time.strftime("%H:%M:%S"),
+                            }
+                        )
+
+            elif message.type == "llm_response_streaming" and message.data:
+                token = message.data.get("token", "")
+                is_complete = message.data.get("is_complete", False)
+
+                if not self.conversation_state["processing"]:
+                    self.current_response = "💭 AI Thinking: "
+                    self.conversation_state["processing"] = True
+
+                if token:
+                    self.current_response += token
+
+                if is_complete:
+                    self.conversation_state["processing"] = False
+                    clean_response = self.current_response.replace(
+                        "💭 AI Thinking: ", ""
+                    )
+                    if clean_response.strip():
+                        self.conversation_log.append(
+                            {
+                                "type": "assistant",
+                                "message": clean_response,
+                                "timestamp": time.strftime("%H:%M:%S"),
+                            }
+                        )
+
+            elif message.type == "tts_audio" and message.data:
+                text = message.data.get("text", "")
+                if text:
+                    if not self.conversation_state["speaking"]:
+                        self.status_message = f"🔊 AI speaking"
+                        self.conversation_state["speaking"] = True
+
+                    if self.sdk and self.running:
+                        try:
+                            if self.loop and not self.loop.is_closed():
+                                asyncio.run_coroutine_threadsafe(
+                                    self.sdk.play_audio(), self.loop
+                                )
+                        except Exception as e:
+                            logger.error(f"Error playing audio: {e}")
+
+            elif message.type == "speech_interruption":
+                self.status_message = "🛑 Speech interrupted"
+                self.conversation_state["speaking"] = False
+
+        def handle_connection(self, state):
+            """Handle connection state changes"""
+            if state.name == "CONNECTED":
+                self.status_message = "✅ Connected to voice assistant"
+                self.conversation_state["connected"] = True
+            elif state.name == "DISCONNECTED":
+                self.status_message = "❌ Disconnected from voice assistant"
+                self.conversation_state["connected"] = False
+
+        async def start_streaming(self):
+            """Start the voice assistant streaming"""
+            if not self.running:
+                self.running = True
+                self.stop_event = asyncio.Event()
+                await self.initialize_sdk()
+
+                try:
+                    if self.sdk:
+                        streaming_task = asyncio.create_task(
+                            self.sdk.stream_microphone(
+                                duration=0,
+                                auto_connect=True,
+                                auto_playback=False,
+                                verbose=False,
+                            )
+                        )
+
+                        done, pending = await asyncio.wait(
+                            [
+                                streaming_task,
+                                asyncio.create_task(self.stop_event.wait()),
+                            ],
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+
+                        for task in pending:
+                            task.cancel()
+                            try:
+                                await task
+                            except asyncio.CancelledError:
+                                pass
+
+                except Exception as e:
+                    logger.error(f"Error in streaming: {e}")
+                    self.status_message = f"❌ Error: {str(e)}"
+                    self.running = False
+
+        async def stop_streaming(self):
+            """Stop the voice assistant streaming"""
+            if self.running:
+                self.running = False
+
+                if self.stop_event:
+                    self.stop_event.set()
+
+                if self.sdk:
+                    try:
+                        await self.sdk.disconnect()
+                        await asyncio.sleep(0.5)
+                        self.sdk.cleanup()
+                    except Exception as e:
+                        logger.error(f"Error during SDK cleanup: {e}")
+                    finally:
+                        self.sdk = None
+
+                await asyncio.sleep(0.2)
+                self.status_message = "👋 Voice assistant stopped"
+
+        def get_status(self) -> tuple:
+            """Get current status for Gradio updates"""
+            conversation_text = ""
+            for entry in self.conversation_log[-10:]:
+                if entry["type"] == "user":
+                    conversation_text += (
+                        f"[{entry['timestamp']}] 👤 You: {entry['message']}\n\n"
+                    )
+                else:
+                    conversation_text += (
+                        f"[{entry['timestamp']}] 🤖 AI: {entry['message']}\n\n"
+                    )
+
+            return (
+                self.current_transcription,
+                self.current_response,
+                conversation_text,
+                self.status_message,
+                self.conversation_state["connected"],
+            )
+
+        def clear_conversation(self):
+            """Clear the conversation log"""
+            self.conversation_log = []
+            self.current_transcription = ""
+            self.current_response = ""
+
+    # Global instance
+    assistant = GradioVoiceAssistant()
+
+    def start_assistant():
+        """Start the voice assistant in a separate thread"""
+
+        def run_async():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            assistant.loop = loop
+
+            try:
+                loop.run_until_complete(assistant.start_streaming())
+            except Exception as e:
+                logger.error(f"Error in async run: {e}")
+            finally:
+                try:
+                    remaining_tasks = [
+                        task for task in asyncio.all_tasks(loop) if not task.done()
+                    ]
+                    if remaining_tasks:
+                        loop.run_until_complete(
+                            asyncio.wait_for(
+                                asyncio.gather(
+                                    *remaining_tasks, return_exceptions=True
+                                ),
+                                timeout=2.0,
+                            )
+                        )
+                except (asyncio.TimeoutError, Exception) as e:
+                    logger.warning(f"Some tasks didn't complete cleanly: {e}")
+
+                try:
+                    loop.close()
+                except Exception as e:
+                    logger.error(f"Error closing loop: {e}")
+                finally:
+                    assistant.loop = None
+
+        if not assistant.running:
+            assistant.thread = threading.Thread(target=run_async, daemon=True)
+            assistant.thread.start()
+            return "🚀 Starting voice assistant...", True
+        else:
+            return (
+                "⚠️ Assistant already running",
+                assistant.conversation_state["connected"],
+            )
+
+    def stop_assistant():
+        """Stop the voice assistant"""
+        if assistant.running:
+            if (
+                assistant.loop
+                and not assistant.loop.is_closed()
+                and assistant.loop.is_running()
+            ):
+                try:
+                    future = asyncio.run_coroutine_threadsafe(
+                        assistant.stop_streaming(), assistant.loop
+                    )
+                    future.result(timeout=10.0)
+                except (TimeoutError, Exception) as e:
+                    logger.error(f"Error during graceful stop: {e}")
+
+            if assistant.thread and assistant.thread.is_alive():
+                assistant.thread.join(timeout=10.0)
+
+            if assistant.running:
+                assistant.running = False
+                if assistant.sdk:
+                    try:
+                        assistant.sdk.cleanup()
+                    except Exception as e:
+                        logger.error(f"Error during cleanup: {e}")
+                    finally:
+                        assistant.sdk = None
+                assistant.status_message = "🛑 Voice assistant stopped"
+
+            return "🛑 Voice assistant stopped", False
+        else:
+            return "⚠️ Assistant not running", False
+
+    def clear_conversation():
+        """Clear the conversation log"""
+        assistant.clear_conversation()
+        return "", "", "🧹 Conversation cleared"
+
+    def update_interface():
+        """Update the interface with current status"""
+        if assistant.running:
+            transcription, response, conversation_log, status, connected = (
+                assistant.get_status()
+            )
+            return transcription, response, conversation_log, status
+        else:
+            return "", "", "", "Ready to start"
+
+    # Create the Gradio interface
+    with gr.Blocks(
+        title="Advanced Voice Assistant",
+        css="""
+        .status-connected { color: green; font-weight: bold; }
+        .status-disconnected { color: red; font-weight: bold; }
+        .transcription-box { border: 2px solid #4CAF50; }
+        .response-box { border: 2px solid #2196F3; }
+        .conversation-log { border: 2px solid #9C27B0; background-color: #f8f9fa; }
+        """,
+    ) as interface:
+
+        gr.Markdown(
+            """
+        # 🎤 Vocals SDK Voice Assistant
+        
+        Real-time voice assistant with complete control over transcription, 
+        AI responses, and audio playback.
+        
+        **Features:**
+        - ✅ Real-time transcription with live updates
+        - 🤖 Streaming AI responses  
+        - 📜 Conversation history tracking
+        - 🔊 Automatic audio playback
+        - 🎯 Full conversation state tracking
+        """
+        )
+
+        with gr.Row():
+            with gr.Column(scale=1):
+                start_btn = gr.Button(
+                    "🚀 Start Assistant", variant="primary", size="lg"
+                )
+                stop_btn = gr.Button(
+                    "🛑 Stop Assistant", variant="secondary", size="lg"
+                )
+                clear_btn = gr.Button(
+                    "🧹 Clear Conversation", variant="secondary", size="lg"
+                )
+
+            with gr.Column(scale=2):
+                status_display = gr.Textbox(
+                    label="Status",
+                    value="Ready to start",
+                    interactive=False,
+                    elem_classes=["status-disconnected"],
+                )
+
+        with gr.Row():
+            with gr.Column():
+                transcription_display = gr.Textbox(
+                    label="🎤 Live Transcription",
+                    placeholder="Your speech will appear here...",
+                    lines=3,
+                    interactive=False,
+                    elem_classes=["transcription-box"],
+                )
+
+            with gr.Column():
+                response_display = gr.Textbox(
+                    label="🤖 AI Response",
+                    placeholder="AI responses will appear here...",
+                    lines=3,
+                    interactive=False,
+                    elem_classes=["response-box"],
+                )
+
+        with gr.Row():
+            conversation_log_display = gr.Textbox(
+                label="💬 Conversation Log",
+                placeholder="Your conversation history will appear here...",
+                lines=10,
+                interactive=False,
+                elem_classes=["conversation-log"],
+            )
+
+        gr.Markdown(
+            """
+        ### 📋 Instructions:
+        1. Click **Start Assistant** to begin
+        2. **Speak into your microphone** - you'll see live transcription
+        3. **Wait for AI response** - responses stream in real-time
+        4. **Listen to AI speech** - audio plays automatically
+        5. **View conversation log** - see your back-and-forth conversation
+        6. Click **Clear Conversation** to reset the log
+        7. Click **Stop Assistant** when done
+        """
+        )
+
+        # Event handlers
+        start_btn.click(fn=start_assistant, outputs=[status_display, gr.State()])
+        stop_btn.click(fn=stop_assistant, outputs=[status_display, gr.State()])
+        clear_btn.click(
+            fn=clear_conversation,
+            outputs=[transcription_display, response_display, status_display],
+        )
+
+        # Real-time updates
+        timer = gr.Timer(0.1)
+        timer.tick(
+            fn=update_interface,
+            outputs=[
+                transcription_display,
+                response_display,
+                conversation_log_display,
+                status_display,
+            ],
+        )
+
+    # Launch the interface
+    interface.launch(
+        server_name="0.0.0.0",
+        server_port=7860,
+        share=False,
+        debug=False,
+        show_error=True,
+        inbrowser=True,
+    )
 
 
 def list_audio_devices():
