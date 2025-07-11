@@ -387,19 +387,19 @@ class VocalsSDKTester:
             ]
 
             for method in required_methods:
-                if method not in sdk:
+                if not hasattr(sdk, method):
                     self._add_result("SDK Creation", False, f"Missing method: {method}")
                     return False
 
             # Test connection
-            await sdk["connect"]()
+            await sdk.connect()
 
-            if not sdk["get_is_connected"]():
+            if not sdk.is_connected:
                 self._add_result("SDK Creation", False, "SDK failed to connect")
                 return False
 
-            await sdk["disconnect"]()
-            sdk["cleanup"]()
+            await sdk.disconnect()
+            sdk.cleanup()
 
             self._add_result(
                 "SDK Creation", True, "SDK created and connected successfully"
@@ -428,7 +428,7 @@ class VocalsSDKTester:
             def test_handler(message):
                 received_messages.append(message)
 
-            remove_handler = sdk["on_message"](test_handler)
+            remove_handler = sdk.on_message(test_handler)
 
             # Simulate a message (this would normally come from WebSocket)
             test_message = WebSocketResponse(
@@ -438,7 +438,7 @@ class VocalsSDKTester:
             # Test handler removal
             remove_handler()
 
-            sdk["cleanup"]()
+            sdk.cleanup()
 
             self._add_result("Message Handling", True, "Message handler system working")
             return True

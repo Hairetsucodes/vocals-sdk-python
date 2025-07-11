@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Enhanced example script demonstrating real-time microphone streaming through Vocals SDK.
-This version uses the new SDK abstractions with enhanced text handling for both 
+This version uses the new class-based SDK API with enhanced text handling for both 
 transcription and LLM responses.
 """
 
@@ -15,9 +15,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import Vocals SDK with new utilities
+# Import Vocals SDK with new class-based API
 from vocals import (
-    create_vocals,
+    VocalsClient,
     get_default_config,
     AudioConfig,
     create_microphone_stats_tracker,
@@ -48,7 +48,7 @@ async def main():
     """
     Main function demonstrating enhanced microphone streaming with beautiful text display.
     """
-    sdk = None
+    client = None
     try:
         # Set logging to WARNING level for cleaner output
         logging.getLogger("vocals").setLevel(logging.WARNING)
@@ -63,8 +63,8 @@ async def main():
         config = get_default_config()
         audio_config = AudioConfig(sample_rate=24000, channels=1, format="pcm_f32le")
 
-        # Create SDK instance
-        sdk = create_vocals(config, audio_config)
+        # Create SDK client instance
+        client = VocalsClient(config, audio_config)
 
         try:
             print("\n" + "=" * 60)
@@ -80,7 +80,7 @@ async def main():
 
             # Create microphone streaming task
             async def stream_task():
-                return await sdk["stream_microphone"](
+                return await client.stream_microphone(
                     duration=30.0,  # Record for 30 seconds
                     auto_connect=True,  # Auto-connect if needed
                     auto_playback=True,  # Auto-play received audio
@@ -144,17 +144,17 @@ async def main():
         raise
     finally:
         # Ensure proper cleanup
-        if sdk:
+        if client:
             try:
                 # Stop recording first
                 try:
-                    await asyncio.wait_for(sdk["stop_recording"](), timeout=2.0)
+                    await asyncio.wait_for(client.stop_recording(), timeout=2.0)
                 except (asyncio.TimeoutError, Exception):
                     pass
 
                 # Then disconnect and cleanup
-                await asyncio.wait_for(sdk["disconnect"](), timeout=3.0)
-                sdk["cleanup"]()
+                await asyncio.wait_for(client.disconnect(), timeout=3.0)
+                client.cleanup()
 
             except Exception as e:
                 logger.debug(f"Error during cleanup: {e}")
@@ -168,8 +168,8 @@ async def conversation_tracking_example():
     try:
         logger.info("📜 Starting Conversation Tracking Example")
 
-        # Create SDK
-        sdk = create_vocals()
+        # Create SDK client
+        client = VocalsClient()
 
         # Create conversation tracker and stats tracker
         conversation_tracker = create_conversation_tracker()
@@ -189,10 +189,10 @@ async def conversation_tracking_example():
             amplitude_threshold=0.02, verbose=False
         )
 
-        # Set up handlers
-        sdk["on_message"](message_handler)
-        sdk["on_connection_change"](connection_handler)
-        sdk["on_audio_data"](audio_handler)
+        # Set up handlers using the new class-based API
+        client.on_message(message_handler)
+        client.on_connection_change(connection_handler)
+        client.on_audio_data(audio_handler)
 
         try:
             print("\n" + "=" * 60)
@@ -208,7 +208,7 @@ async def conversation_tracking_example():
             print("=" * 60)
 
             # Stream microphone with enhanced features
-            await sdk["stream_microphone"](
+            await client.stream_microphone(
                 duration=20.0,
                 auto_connect=True,
                 auto_playback=True,
@@ -230,8 +230,8 @@ async def conversation_tracking_example():
             )
 
         finally:
-            await sdk["disconnect"]()
-            sdk["cleanup"]()
+            await client.disconnect()
+            client.cleanup()
 
     except KeyboardInterrupt:
         logger.info("👋 Interrupted by user")
@@ -247,14 +247,107 @@ async def minimal_example():
     try:
         logger.info("🎤 Starting Minimal Example")
 
-        # Create SDK and stream microphone in one go
-        sdk = create_vocals()
-        await sdk["stream_microphone"](duration=10.0)
+        # Create SDK client and stream microphone in one go
+        client = VocalsClient()
+        await client.stream_microphone(duration=10.0)
 
         logger.info("🎉 Minimal example completed!")
 
     except Exception as e:
         logger.error(f"Error in minimal example: {e}")
+        raise
+
+
+async def context_manager_example():
+    """
+    Example showing the new async context manager support.
+    """
+    try:
+        logger.info("🎤 Starting Context Manager Example")
+
+        # Use the new async context manager
+        async with VocalsClient() as client:
+            print("\n" + "=" * 60)
+            print("🎤 CONTEXT MANAGER EXAMPLE")
+            print("=" * 60)
+            print("This example uses the new async context manager!")
+            print("The client will automatically connect and disconnect.")
+            print("Recording for 15 seconds...")
+            print("=" * 60)
+
+            # Stream microphone - connection and cleanup handled automatically
+            await client.stream_microphone(
+                duration=15.0,
+                auto_connect=False,  # Already connected by context manager
+                auto_playback=True,
+                verbose=False,
+                stats_tracking=True,
+            )
+
+        logger.info("🎉 Context manager example completed!")
+
+    except Exception as e:
+        logger.error(f"Error in context manager example: {e}")
+        raise
+
+
+async def property_access_example():
+    """
+    Example showing the new property-based access for better Python idioms.
+    """
+    try:
+        logger.info("🎤 Starting Property Access Example")
+
+        client = VocalsClient()
+
+        try:
+            print("\n" + "=" * 60)
+            print("🎤 PROPERTY ACCESS EXAMPLE")
+            print("=" * 60)
+            print("This example shows the new property-based access!")
+            print("=" * 60)
+
+            # Connect and show connection status using properties
+            await client.connect()
+            print(f"🔗 Connection state: {client.connection_state}")
+            print(f"✅ Is connected: {client.is_connected}")
+
+            # Start recording and show recording status
+            await client.start_recording()
+            print(f"🎤 Recording state: {client.recording_state}")
+            print(f"🎙️  Is recording: {client.is_recording}")
+
+            # Show audio properties
+            print(f"🔊 Current amplitude: {client.current_amplitude:.4f}")
+            print(f"🎵 Audio queue length: {len(client.audio_queue)}")
+
+            # Record for a bit
+            await asyncio.sleep(5)
+
+            # Stop recording
+            await client.stop_recording()
+            print(f"🛑 Recording stopped. State: {client.recording_state}")
+
+            # Show final status
+            print(f"🎵 Final audio queue length: {len(client.audio_queue)}")
+            if client.audio_queue:
+                print("🎶 Playing received audio...")
+                await client.play_audio()
+
+                # Wait for playback using property
+                while client.is_playing:
+                    await asyncio.sleep(0.1)
+
+                print("✅ Playback completed!")
+
+        finally:
+            await client.disconnect()
+            client.cleanup()
+
+        logger.info("🎉 Property access example completed!")
+
+    except Exception as e:
+        logger.error(f"Error in property access example: {e}")
         raise
 
 
@@ -265,12 +358,12 @@ async def infinite_streaming_example():
     try:
         logger.info("🎤 Starting Infinite Streaming Example")
 
-        # Create SDK
-        sdk = create_vocals()
+        # Create SDK client
+        client = VocalsClient()
 
         # Create a task to handle the infinite streaming
         async def stream_task():
-            await sdk["stream_microphone"](
+            await client.stream_microphone(
                 duration=0,  # 0 = infinite streaming
                 auto_connect=True,
                 auto_playback=True,
@@ -286,7 +379,7 @@ async def infinite_streaming_example():
             await shutdown_event.wait()
 
             # Stop recording gracefully
-            await sdk["stop_recording"]()
+            await client.stop_recording()
 
             # Wait a bit for final processing
             await asyncio.sleep(2)
@@ -300,8 +393,8 @@ async def infinite_streaming_example():
                 pass
 
         finally:
-            await sdk["disconnect"]()
-            sdk["cleanup"]()
+            await client.disconnect()
+            client.cleanup()
 
         logger.info("🎉 Infinite streaming example completed!")
 
@@ -315,9 +408,11 @@ if __name__ == "__main__":
     print("1. Enhanced microphone streaming (30s)")
     print("2. Conversation tracking example (20s)")
     print("3. Minimal example (10s)")
-    print("4. Infinite streaming example (until Ctrl+C)")
+    print("4. Context manager example (15s)")
+    print("5. Property access example (5s)")
+    print("6. Infinite streaming example (until Ctrl+C)")
 
-    choice = input("Enter choice (1-4): ").strip()
+    choice = input("Enter choice (1-6): ").strip()
 
     try:
         if choice == "1":
@@ -327,6 +422,10 @@ if __name__ == "__main__":
         elif choice == "3":
             asyncio.run(minimal_example())
         elif choice == "4":
+            asyncio.run(context_manager_example())
+        elif choice == "5":
+            asyncio.run(property_access_example())
+        elif choice == "6":
             asyncio.run(infinite_streaming_example())
         else:
             print("Invalid choice, running enhanced example")

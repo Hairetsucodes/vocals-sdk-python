@@ -2,13 +2,13 @@
 Vocals SDK for Python
 
 A Python SDK for voice processing and real-time audio communication,
-following functional composition patterns while maintaining backward compatibility.
+providing both class-based and functional composition patterns for flexibility.
 """
 
-__version__ = "1.0.97"
+__version__ = "1.0.98"
 
-# Primary functional interfaces
-from .client import create_vocals
+# Primary interfaces - both class-based and functional
+from .client import VocalsClient, create_vocals
 from .websocket_client import create_websocket_client
 from .audio_processor import create_audio_processor
 from .token_manager import create_token_manager
@@ -92,7 +92,8 @@ from .types import (
 from .audio_processor import AudioConfig
 
 __all__ = [
-    # Primary functional interfaces
+    # Primary interfaces - both class-based and functional
+    "VocalsClient",
     "create_vocals",
     "create_websocket_client",
     "create_audio_processor",

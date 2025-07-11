@@ -63,7 +63,7 @@ def demo(duration, verbose, stats, device):
             print("Press Ctrl+C to stop early")
 
             # Stream microphone
-            session_stats = await sdk["stream_microphone"](
+            session_stats = await sdk.stream_microphone(
                 duration=duration,
                 auto_connect=True,
                 auto_playback=True,
@@ -87,8 +87,8 @@ def demo(duration, verbose, stats, device):
         finally:
             if "sdk" in locals():
                 try:
-                    await sdk["disconnect"]()
-                    sdk["cleanup"]()
+                    await sdk.disconnect()
+                    sdk.cleanup()
                 except:
                     pass
 
@@ -400,7 +400,7 @@ async def voice_assistant():
         print("Press Ctrl+C to stop")
         
         # Stream microphone (30 seconds)
-        await sdk["stream_microphone"](
+        await sdk.stream_microphone(
             duration=30,
             auto_connect=True,  # Connects automatically since auto_connect defaults to False
             auto_playback=True,  # AI responses play automatically
@@ -410,8 +410,8 @@ async def voice_assistant():
     except KeyboardInterrupt:
         print("\\n👋 Voice assistant stopped")
     finally:
-        await sdk["disconnect"]()
-        sdk["cleanup"]()
+        await sdk.disconnect()
+        sdk.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(voice_assistant())
@@ -443,7 +443,7 @@ async def process_audio_file(file_path: str):
         print(f"🎵 Processing file: {file_path}")
         
         # Stream audio file
-        await sdk["stream_audio_file"](
+        await sdk.stream_audio_file(
             file_path=file_path,
             verbose=False,
             auto_connect=True  # Connects automatically since auto_connect defaults to False
@@ -451,7 +451,7 @@ async def process_audio_file(file_path: str):
         
         # Wait for TTS playback to complete (playback is automatic in default mode)
         print("⏳ Waiting for AI response playback...")
-        while sdk["get_is_playing"]():
+        while sdk.is_playing:
             await asyncio.sleep(0.1)
         
         print("✅ File processing completed")
@@ -459,8 +459,8 @@ async def process_audio_file(file_path: str):
     except Exception as e:
         print(f"❌ Error processing file: {e}")
     finally:
-        await sdk["disconnect"]()
-        sdk["cleanup"]()
+        await sdk.disconnect()
+        sdk.cleanup()
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -509,7 +509,7 @@ async def conversation_session():
             if text:
                 print(f"🔊 Playing: {text}")
                 # Manually start playback since auto_playback=False
-                asyncio.create_task(sdk["play_audio"]())
+                asyncio.create_task(sdk.play_audio())
         
         # Track conversation for analysis
         if message.type == "transcription" and message.data:
@@ -524,7 +524,7 @@ async def conversation_session():
                 tracker["add_response"](response)
     
     # Register our custom handler
-    sdk["on_message"](track_conversation)
+    sdk.on_message(track_conversation)
     
     try:
         print("💬 Conversation Session Started")
@@ -532,7 +532,7 @@ async def conversation_session():
         print("Press Ctrl+C to stop and see analysis")
         
         # Run conversation with manual playback control
-        await sdk["stream_microphone"](
+        await sdk.stream_microphone(
             duration=60,  # 1 minute
             auto_connect=True,  # Connects automatically since auto_connect defaults to False
             auto_playback=False,  # We control playback manually via our handler
@@ -552,8 +552,8 @@ async def conversation_session():
         print(f"   Duration: {stats['duration']:.1f} seconds")
         print(f"   Exchanges: {stats['transcriptions'] + stats['responses']}")
         
-        await sdk["disconnect"]()
-        sdk["cleanup"]()
+        await sdk.disconnect()
+        sdk.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(conversation_session())
@@ -636,7 +636,7 @@ async def advanced_voice_assistant():
                 
                 # OPTION 1: Use built-in audio playback (current approach)
                 # Manually trigger playback since auto_playback=False
-                asyncio.create_task(sdk["play_audio"]())
+                asyncio.create_task(sdk.play_audio())
                 
                 # OPTION 2: Process audio queue with custom handler (new approach)
                 # Uncomment the lines below to use custom audio processing instead
@@ -658,7 +658,7 @@ async def advanced_voice_assistant():
                 #     # print(f"💾 Saved to: {filename}")
                 # 
                 # # Process audio queue with custom handler
-                # processed_count = sdk["process_audio_queue"](
+                # processed_count = sdk.process_audio_queue(
                 #     my_custom_audio_handler, 
                 #     consume_all=True
                 # )
@@ -669,7 +669,7 @@ async def advanced_voice_assistant():
             conversation_state['speaking'] = False
     
     # Register our custom message handler
-    sdk["on_message"](handle_messages)
+    sdk.on_message(handle_messages)
     
     # Custom connection handler
     def handle_connection(state):
@@ -678,7 +678,7 @@ async def advanced_voice_assistant():
         elif state.name == "DISCONNECTED":
             print("❌ Disconnected from voice assistant")
     
-    sdk["on_connection_change"](handle_connection)
+    sdk.on_connection_change(handle_connection)
     
     try:
         print("🎤 Advanced Voice Assistant Started")
@@ -688,7 +688,7 @@ async def advanced_voice_assistant():
         print("Press Ctrl+C to stop")
         
         # Stream microphone with complete manual control
-        await sdk["stream_microphone"](
+        await sdk.stream_microphone(
             duration=0,  # Infinite recording
             auto_connect=True,  # Connects automatically since auto_connect defaults to False
             auto_playback=False,  # We have complete manual control over playback
@@ -698,8 +698,8 @@ async def advanced_voice_assistant():
     except KeyboardInterrupt:
         print("\\n👋 Advanced voice assistant stopped")
     finally:
-        await sdk["disconnect"]()
-        sdk["cleanup"]()
+        await sdk.disconnect()
+        sdk.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(advanced_voice_assistant())
@@ -771,9 +771,9 @@ class VocalsSDKTester:
             from .client import create_vocals
 
             sdk = create_vocals()
-            await sdk["connect"]()
-            connected = sdk["get_is_connected"]()
-            await sdk["disconnect"]()
+            await sdk.connect()
+            connected = sdk.is_connected
+            await sdk.disconnect()
 
             self.results.append(
                 ("WebSocket Connection", "✅ PASS" if connected else "❌ FAIL")
@@ -789,10 +789,10 @@ class VocalsSDKTester:
             from .client import create_vocals
 
             sdk = create_vocals()
-            await sdk["start_recording"]()
+            await sdk.start_recording()
             await asyncio.sleep(0.5)
-            recording = sdk["get_is_recording"]()
-            await sdk["stop_recording"]()
+            recording = sdk.is_recording
+            await sdk.stop_recording()
 
             self.results.append(
                 ("Audio Recording", "✅ PASS" if recording else "❌ FAIL")

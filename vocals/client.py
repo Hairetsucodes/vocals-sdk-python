@@ -1,5 +1,5 @@
 """
-Main Vocals SDK client, following functional composition pattern while mirroring the NextJS implementation.
+Main Vocals SDK client using class-based composition pattern for better Python developer experience.
 """
 
 import asyncio
@@ -27,17 +27,12 @@ from .audio_processor import create_audio_processor, AudioConfig
 logger = logging.getLogger(__name__)
 
 
-def create_vocals(
-    config: Optional[VocalsConfig] = None,
-    audio_config: Optional[AudioConfig] = None,
-    user_id: Optional[str] = None,
-    modes: List[str] = [],  # e.g., ['transcription', 'voice_assistant']
-):
+class VocalsClient:
     """
-    Create a Vocals SDK instance for voice processing and real-time audio communication.
+    Vocals SDK client for voice processing and real-time audio communication.
 
-    This function provides the same functionality as the NextJS useVocals hook
-    but using functional composition instead of class-based structure.
+    This class provides the same functionality as the functional create_vocals approach
+    but uses a class-based structure for better Python developer experience.
 
     Args:
         config: Configuration options for the SDK
@@ -49,34 +44,86 @@ def create_vocals(
                - 'voice_assistant': Enables AI response handling and speech interruption only
                Note: When modes are specified, SDK becomes passive - users must attach their own handlers.
 
-    Returns:
-        Dictionary with SDK functions and properties
+    Example:
+        # Basic usage
+        client = VocalsClient()
+        await client.connect()
+        await client.stream_microphone(duration=30.0)
+
+        # With custom configuration
+        config = VocalsConfig(debug_level="DEBUG")
+        client = VocalsClient(config=config)
+
+        # Context manager usage
+        async with VocalsClient() as client:
+            await client.stream_microphone(duration=30.0)
     """
-    # Initialize configurations
-    config = config or get_default_config()
-    audio_config = audio_config or AudioConfig()
 
-    # Setup logging based on configuration
-    config.setup_logging()
+    def __init__(
+        self,
+        config: Optional[VocalsConfig] = None,
+        audio_config: Optional[AudioConfig] = None,
+        user_id: Optional[str] = None,
+        modes: List[str] = [],
+    ):
+        """Initialize the Vocals client."""
+        # Initialize configurations
+        self.config = config or get_default_config()
+        self.audio_config = audio_config or AudioConfig()
+        self.modes = modes
 
-    # Create components using functional approach
-    websocket_client = create_websocket_client(config, user_id)
-    audio_processor = create_audio_processor(audio_config)
+        # Setup logging based on configuration
+        self.config.setup_logging()
 
-    # Store event loop reference for audio callback thread
-    event_loop = None
-    # Flag to track if microphone streaming is active (to avoid duplicate TTS processing)
-    microphone_streaming_active = False
+        # Create components using composition
+        self.websocket_client = create_websocket_client(self.config, user_id)
+        self.audio_processor = create_audio_processor(self.audio_config)
 
-    def _handle_websocket_message(message: WebSocketResponse) -> None:
-        """Handle incoming WebSocket messages"""
+        # Store event loop reference for audio callback thread
+        self._event_loop = None
+        # Flag to track if microphone streaming is active (to avoid duplicate TTS processing)
+        self._microphone_streaming_active = False
+
+        # Set up event handlers between components
+        self._setup_internal_handlers()
+
+        # Auto-attach enhanced handler ONLY when no modes are specified (default experience)
+        if not modes:  # Empty list means default full experience
+            self._setup_default_handlers()
+
+        # Auto-connect if configured
+        if self.config.auto_connect:
+            asyncio.create_task(self.connect())
+
+    def _setup_internal_handlers(self) -> None:
+        """Set up internal event handlers between components."""
+        self.websocket_client["add_message_handler"](self._handle_websocket_message)
+        self.audio_processor["add_audio_data_handler"](self._handle_audio_data)
+        self.websocket_client["add_error_handler"](self._handle_error)
+        self.audio_processor["add_error_handler"](self._handle_error)
+
+    def _setup_default_handlers(self) -> None:
+        """Set up default handlers for full experience mode."""
+        from .utils import create_enhanced_message_handler
+
+        enhanced_handler = create_enhanced_message_handler(
+            verbose=(self.config.debug_level == "DEBUG"),
+            show_transcription=True,
+            show_responses=True,
+            show_streaming=True,
+            show_detection=True,
+        )
+        self.websocket_client["add_message_handler"](enhanced_handler)
+
+    def _handle_websocket_message(self, message: WebSocketResponse) -> None:
+        """Handle incoming WebSocket messages."""
         try:
             # Handle TTS audio messages (skip if microphone streaming is handling it)
             if (
                 message.type == "tts_audio"
                 and message.data
                 and (
-                    not microphone_streaming_active or not modes
+                    not self._microphone_streaming_active or not self.modes
                 )  # Always handle in default mode
             ):
                 # Convert to TTSAudioSegment
@@ -93,54 +140,55 @@ def create_vocals(
                 )
 
                 # Add to audio queue
-                audio_processor["add_to_queue"](segment)
+                self.audio_processor["add_to_queue"](segment)
 
                 # Auto-start playback if not already playing (default experience only)
                 # In controlled mode, the audio processor's auto_playback setting will handle this
-                if not modes and not audio_processor["get_is_playing"]():
-                    asyncio.create_task(audio_processor["play_audio"]())
+                if not self.modes and not self.audio_processor["get_is_playing"]():
+                    asyncio.create_task(self.audio_processor["play_audio"]())
 
             # Handle speech interruption messages
             elif message.type == "speech_interruption":
                 # Handle speech interruption for default experience or voice_assistant mode
-                if not modes or "voice_assistant" in modes:
+                if not self.modes or "voice_assistant" in self.modes:
                     # Fade out current audio and clear queue for new speech
-                    asyncio.create_task(_handle_speech_interruption())
+                    asyncio.create_task(self._handle_speech_interruption())
 
         except Exception as e:
             logger.error(f"Error handling WebSocket message: {e}")
 
-    async def _handle_speech_interruption() -> None:
-        """Handle speech interruption events"""
+    async def _handle_speech_interruption(self) -> None:
+        """Handle speech interruption events."""
         try:
             # Fade out current audio
-            await audio_processor["fade_out_audio"](0.3)
+            await self.audio_processor["fade_out_audio"](0.3)
 
             # Clear the queue
-            audio_processor["clear_queue"]()
+            self.audio_processor["clear_queue"]()
 
         except Exception as e:
             logger.error(f"Error handling speech interruption: {e}")
 
-    def _handle_audio_data(audio_data: List[float]) -> None:
-        """Handle audio data from processor"""
+    def _handle_audio_data(self, audio_data: List[float]) -> None:
+        """Handle audio data from processor."""
         # Send audio data to WebSocket if connected and recording
         if (
-            websocket_client["get_is_connected"]()
-            and audio_processor["get_recording_state"]() == RecordingState.RECORDING
+            self.websocket_client["get_is_connected"]()
+            and self.audio_processor["get_recording_state"]()
+            == RecordingState.RECORDING
         ):
             message = WebSocketMessage(
                 event="media",
                 data=audio_data,
-                format=audio_config.format,
-                sample_rate=audio_config.sample_rate,
+                format=self.audio_config.format,
+                sample_rate=self.audio_config.sample_rate,
             )
 
             # Schedule the coroutine in the main event loop since we're in a callback thread
-            if event_loop:
+            if self._event_loop:
                 try:
                     future = asyncio.run_coroutine_threadsafe(
-                        websocket_client["send_message"](message), event_loop
+                        self.websocket_client["send_message"](message), self._event_loop
                     )
 
                     # Add a callback to handle any errors
@@ -156,109 +204,88 @@ def create_vocals(
             else:
                 logger.warning("No event loop available for audio data sending")
 
-    def _handle_error(error: VocalsError) -> None:
-        """Handle errors from components"""
+    def _handle_error(self, error: VocalsError) -> None:
+        """Handle errors from components."""
         logger.error(f"SDK Error: {error.message} ({error.code})")
         # Additional error handling can be added here
 
-    # Set up event handlers between components
-    websocket_client["add_message_handler"](_handle_websocket_message)
-    audio_processor["add_audio_data_handler"](_handle_audio_data)
-    websocket_client["add_error_handler"](_handle_error)
-    audio_processor["add_error_handler"](_handle_error)
-
-    # Auto-attach enhanced handler ONLY when no modes are specified (default experience)
-    if not modes:  # Empty list means default full experience
-        from .utils import create_enhanced_message_handler
-
-        enhanced_handler = create_enhanced_message_handler(
-            verbose=(config.debug_level == "DEBUG"),
-            show_transcription=True,
-            show_responses=True,
-            show_streaming=True,
-            show_detection=True,
-        )
-        websocket_client["add_message_handler"](enhanced_handler)
-
     # Connection methods
-    async def connect() -> None:
-        """Connect to the WebSocket server"""
-        await websocket_client["connect"]()
+    async def connect(self) -> None:
+        """Connect to the WebSocket server."""
+        await self.websocket_client["connect"]()
 
-    async def disconnect() -> None:
-        """Disconnect from the WebSocket server"""
-        await websocket_client["disconnect"]()
-        audio_processor["cleanup"]()
+    async def disconnect(self) -> None:
+        """Disconnect from the WebSocket server."""
+        await self.websocket_client["disconnect"]()
+        self.audio_processor["cleanup"]()
 
-    async def reconnect() -> None:
-        """Reconnect to the WebSocket server"""
-        await disconnect()
-        await connect()
+    async def reconnect(self) -> None:
+        """Reconnect to the WebSocket server."""
+        await self.disconnect()
+        await self.connect()
 
     # Voice recording methods
-    async def start_recording() -> None:
-        """Start voice recording"""
-        nonlocal event_loop
-
+    async def start_recording(self) -> None:
+        """Start voice recording."""
         # Capture the event loop for audio callback thread
         try:
-            event_loop = asyncio.get_running_loop()
+            self._event_loop = asyncio.get_running_loop()
         except RuntimeError:
             logger.warning("No event loop running when starting recording")
 
         # Ensure we're connected
-        if not websocket_client["get_is_connected"]():
-            await connect()
+        if not self.websocket_client["get_is_connected"]():
+            await self.connect()
 
         # Send start event
         start_message = WebSocketMessage(event="start")
-        await websocket_client["send_message"](start_message)
+        await self.websocket_client["send_message"](start_message)
 
         # Start audio recording
-        await audio_processor["start_recording"]()
+        await self.audio_processor["start_recording"]()
 
         # Send settings event with sample rate
         settings_message = WebSocketMessage(
-            event="settings", data={"sampleRate": audio_config.sample_rate}
+            event="settings", data={"sampleRate": self.audio_config.sample_rate}
         )
-        await websocket_client["send_message"](settings_message)
+        await self.websocket_client["send_message"](settings_message)
 
-    async def stop_recording() -> None:
-        """Stop voice recording"""
+    async def stop_recording(self) -> None:
+        """Stop voice recording."""
         # Stop audio recording
-        await audio_processor["stop_recording"]()
+        await self.audio_processor["stop_recording"]()
 
         # Send stop event
         stop_message = WebSocketMessage(event="stop")
-        await websocket_client["send_message"](stop_message)
+        await self.websocket_client["send_message"](stop_message)
 
     # Audio playback methods
-    async def play_audio() -> None:
-        """Start or resume audio playback"""
-        await audio_processor["play_audio"]()
+    async def play_audio(self) -> None:
+        """Start or resume audio playback."""
+        await self.audio_processor["play_audio"]()
 
-    async def pause_audio() -> None:
-        """Pause audio playback"""
-        await audio_processor["pause_audio"]()
+    async def pause_audio(self) -> None:
+        """Pause audio playback."""
+        await self.audio_processor["pause_audio"]()
 
-    async def stop_audio() -> None:
-        """Stop audio playback"""
-        await audio_processor["stop_audio"]()
+    async def stop_audio(self) -> None:
+        """Stop audio playback."""
+        await self.audio_processor["stop_audio"]()
 
-    async def fade_out_audio(duration: float = 0.5) -> None:
-        """Fade out current audio over specified duration"""
-        await audio_processor["fade_out_audio"](duration)
+    async def fade_out_audio(self, duration: float = 0.5) -> None:
+        """Fade out current audio over specified duration."""
+        await self.audio_processor["fade_out_audio"](duration)
 
-    def clear_queue() -> None:
-        """Clear the audio playback queue"""
-        audio_processor["clear_queue"]()
+    def clear_queue(self) -> None:
+        """Clear the audio playback queue."""
+        self.audio_processor["clear_queue"]()
 
-    def add_to_queue(segment: TTSAudioSegment) -> None:
-        """Add an audio segment to the playback queue"""
-        audio_processor["add_to_queue"](segment)
+    def add_to_queue(self, segment: TTSAudioSegment) -> None:
+        """Add an audio segment to the playback queue."""
+        self.audio_processor["add_to_queue"](segment)
 
     def process_audio_queue(
-        callback: Callable[[TTSAudioSegment], None], consume_all: bool = False
+        self, callback: Callable[[TTSAudioSegment], None], consume_all: bool = False
     ) -> int:
         """
         Process audio segments from the queue by sending them to a user-provided callback function.
@@ -278,18 +305,19 @@ def create_vocals(
                 print(f"Received audio: {segment.text}")
                 # Send to custom player, save to file, etc.
 
-            count = vocals["process_audio_queue"](my_audio_handler, consume_all=True)
+            count = client.process_audio_queue(my_audio_handler, consume_all=True)
             print(f"Processed {count} audio segments")
         """
-        return audio_processor["process_queue"](callback, consume_all)
+        return self.audio_processor["process_queue"](callback, consume_all)
 
     # Messaging methods
-    async def send_message(message: WebSocketMessage) -> None:
-        """Send a message to the WebSocket server"""
-        await websocket_client["send_message"](message)
+    async def send_message(self, message: WebSocketMessage) -> None:
+        """Send a message to the WebSocket server."""
+        await self.websocket_client["send_message"](message)
 
     # High-level audio file streaming
     async def stream_audio_file(
+        self,
         file_path: str,
         chunk_size: int = 1024,
         verbose: bool = True,
@@ -313,7 +341,7 @@ def create_vocals(
             auto_connect: Whether to automatically connect if not connected
 
         Raises:
-            VocalsError: If there's an error streaming the file
+            VocalsSDKException: If there's an error streaming the file
         """
         try:
             from .utils import load_audio_file, send_audio_in_chunks
@@ -332,15 +360,15 @@ def create_vocals(
                 logger.info(f"✅ Loaded {len(audio_data)} audio samples")
 
             # Connect if not connected
-            if auto_connect and not websocket_client["get_is_connected"]():
+            if auto_connect and not self.websocket_client["get_is_connected"]():
                 if verbose:
                     logger.info("Connecting to WebSocket...")
-                await connect()
+                await self.connect()
                 # Give it a moment to establish connection
                 await asyncio.sleep(1)
 
             # Verify connection
-            if not websocket_client["get_is_connected"]():
+            if not self.websocket_client["get_is_connected"]():
                 raise VocalsSDKException(
                     "CONNECTION_ERROR", "Not connected to WebSocket server"
                 )
@@ -349,24 +377,24 @@ def create_vocals(
             if verbose:
                 logger.info("Sending start message...")
             start_message = WebSocketMessage(event="start")
-            await websocket_client["send_message"](start_message)
+            await self.websocket_client["send_message"](start_message)
 
             # Send settings message
             if verbose:
                 logger.info("Sending settings message...")
             settings_message = WebSocketMessage(
-                event="settings", data={"sampleRate": audio_config.sample_rate}
+                event="settings", data={"sampleRate": self.audio_config.sample_rate}
             )
-            await websocket_client["send_message"](settings_message)
+            await self.websocket_client["send_message"](settings_message)
 
             # Stream audio in chunks
             if verbose:
                 logger.info("Starting audio chunk streaming...")
             await send_audio_in_chunks(
-                websocket_client["send_message"],
+                self.websocket_client["send_message"],
                 audio_data,
                 chunk_size=chunk_size,
-                sample_rate=audio_config.sample_rate,
+                sample_rate=self.audio_config.sample_rate,
                 verbose=verbose,
             )
 
@@ -374,7 +402,7 @@ def create_vocals(
             if verbose:
                 logger.info("Sending stop message...")
             stop_message = WebSocketMessage(event="stop")
-            await websocket_client["send_message"](stop_message)
+            await self.websocket_client["send_message"](stop_message)
 
             # Wait for any final responses
             if verbose:
@@ -382,14 +410,14 @@ def create_vocals(
             await asyncio.sleep(2)
 
             # Check for any audio in queue and play it
-            audio_queue = audio_processor["get_audio_queue"]()
+            audio_queue = self.audio_processor["get_audio_queue"]()
             if audio_queue:
                 if verbose:
                     logger.info(f"Playing {len(audio_queue)} audio segments...")
-                await audio_processor["play_audio"]()
+                await self.audio_processor["play_audio"]()
 
                 # Wait for playback to complete
-                while audio_processor["get_is_playing"]():
+                while self.audio_processor["get_is_playing"]():
                     await asyncio.sleep(0.1)
 
                 if verbose:
@@ -405,6 +433,7 @@ def create_vocals(
 
     # High-level microphone streaming
     async def stream_microphone(
+        self,
         duration: float = 30.0,
         auto_connect: bool = True,
         auto_playback: bool = True,
@@ -445,11 +474,10 @@ def create_vocals(
             )
 
             # Set flag to prevent default handler from processing TTS messages
-            nonlocal microphone_streaming_active
-            microphone_streaming_active = True
+            self._microphone_streaming_active = True
 
             # Set auto_playback flag on audio processor
-            audio_processor["set_auto_playback"](auto_playback)
+            self.audio_processor["set_auto_playback"](auto_playback)
 
             if verbose:
                 logger.info(f"🎤 Starting microphone streaming for {duration}s...")
@@ -460,29 +488,29 @@ def create_vocals(
                 stats_tracker = create_microphone_stats_tracker(verbose)
 
             # Connect if not connected
-            if auto_connect and not websocket_client["get_is_connected"]():
+            if auto_connect and not self.websocket_client["get_is_connected"]():
                 # Wait a bit for any existing connection attempts to complete
-                if websocket_client["get_is_connecting"]():
+                if self.websocket_client["get_is_connecting"]():
                     if verbose:
                         logger.info("Waiting for existing connection attempt...")
                     # Wait up to 3 seconds for connection to complete
                     for _ in range(30):  # 30 * 0.1 = 3 seconds
                         await asyncio.sleep(0.1)
-                        if websocket_client["get_is_connected"]():
+                        if self.websocket_client["get_is_connected"]():
                             break
-                        if not websocket_client["get_is_connecting"]():
+                        if not self.websocket_client["get_is_connecting"]():
                             break  # Connection attempt failed
 
                 # Only connect if still not connected
-                if not websocket_client["get_is_connected"]():
+                if not self.websocket_client["get_is_connected"]():
                     if verbose:
                         logger.info("Connecting to WebSocket...")
-                    await connect()
+                    await self.connect()
                     # Give it a moment to establish connection
                     await asyncio.sleep(1)
 
             # Verify connection
-            if not websocket_client["get_is_connected"]():
+            if not self.websocket_client["get_is_connected"]():
                 raise VocalsSDKException(
                     "CONNECTION_ERROR", "Not connected to WebSocket server"
                 )
@@ -491,7 +519,7 @@ def create_vocals(
             # Only add microphone message handler if we're in controlled mode
             # In default mode, the enhanced handler is already attached
             message_handler = None
-            if modes:  # Only in controlled mode
+            if self.modes:  # Only in controlled mode
                 # Use a simplified handler for stats only, disable text display to avoid duplication
                 # with custom user handlers
                 # Always pass audio_processor to ensure TTS audio is added to queue
@@ -499,7 +527,7 @@ def create_vocals(
                 message_handler = create_microphone_message_handler(
                     stats_tracker,
                     verbose,
-                    audio_processor=audio_processor,  # Always pass audio_processor
+                    audio_processor=self.audio_processor,  # Always pass audio_processor
                     show_text=False,  # Disable built-in text display in controlled mode
                     show_streaming=False,  # Disable built-in streaming display
                 )
@@ -515,6 +543,7 @@ def create_vocals(
                             stats_tracker["update"]("tts_segments_received")
 
                 message_handler = stats_handler
+
             connection_handler = create_microphone_connection_handler(
                 stats_tracker, verbose
             )
@@ -525,13 +554,13 @@ def create_vocals(
             # Register microphone-specific handlers (they'll handle TTS display)
             remove_message_handler = None
             if message_handler:  # Only if we created one
-                remove_message_handler = websocket_client["add_message_handler"](
+                remove_message_handler = self.websocket_client["add_message_handler"](
                     message_handler
                 )
-            remove_connection_handler = websocket_client["add_connection_handler"](
+            remove_connection_handler = self.websocket_client["add_connection_handler"](
                 connection_handler
             )
-            remove_audio_handler = audio_processor["add_audio_data_handler"](
+            remove_audio_handler = self.audio_processor["add_audio_data_handler"](
                 audio_data_handler
             )
 
@@ -543,15 +572,15 @@ def create_vocals(
                     try:
                         while True:
                             # Check if there's audio in queue and we're not playing
-                            audio_queue = audio_processor["get_audio_queue"]()
-                            is_playing = audio_processor["get_is_playing"]()
+                            audio_queue = self.audio_processor["get_audio_queue"]()
+                            is_playing = self.audio_processor["get_is_playing"]()
 
                             if audio_queue and not is_playing:
                                 if verbose:
                                     logger.info(
                                         f"🎶 Auto-playing {len(audio_queue)} queued audio segments"
                                     )
-                                await audio_processor["play_audio"]()
+                                await self.audio_processor["play_audio"]()
 
                             await asyncio.sleep(0.1)  # Check every 100ms
 
@@ -569,7 +598,7 @@ def create_vocals(
                 # Start recording
                 if verbose:
                     logger.info("🎙️ Starting recording session...")
-                await start_recording()
+                await self.start_recording()
 
                 # Record for specified duration
                 if duration > 0:
@@ -577,8 +606,10 @@ def create_vocals(
                     while (asyncio.get_event_loop().time() - start_time) < duration:
                         # Show recording status
                         if verbose:
-                            recording_state = audio_processor["get_recording_state"]()
-                            amplitude = audio_processor["get_current_amplitude"]()
+                            recording_state = self.audio_processor[
+                                "get_recording_state"
+                            ]()
+                            amplitude = self.audio_processor["get_current_amplitude"]()
 
                             if (
                                 recording_state.name == "RECORDING"
@@ -600,13 +631,16 @@ def create_vocals(
                         logger.info(
                             "🎙️ Recording indefinitely... (use stop_recording() to stop)"
                         )
-                    while audio_processor["get_recording_state"]().name == "RECORDING":
+                    while (
+                        self.audio_processor["get_recording_state"]().name
+                        == "RECORDING"
+                    ):
                         await asyncio.sleep(0.5)
 
                 # Stop recording
                 if verbose:
                     logger.info("🛑 Stopping recording session...")
-                await stop_recording()
+                await self.stop_recording()
 
                 # Wait for any final responses
                 if verbose:
@@ -615,9 +649,11 @@ def create_vocals(
 
                 # Wait for playback to complete if auto_playback is enabled
                 if auto_playback:
-                    while audio_processor["get_is_playing"]():
+                    while self.audio_processor["get_is_playing"]():
                         if verbose:
-                            current_segment = audio_processor["get_current_segment"]()
+                            current_segment = self.audio_processor[
+                                "get_current_segment"
+                            ]()
                             if current_segment:
                                 logger.debug(f"🎵 Playing: {current_segment.text}")
                         await asyncio.sleep(0.1)
@@ -655,169 +691,136 @@ def create_vocals(
             raise VocalsSDKException("MICROPHONE_STREAM_ERROR", error_msg)
         finally:
             # Reset flag to allow default handler to process TTS messages again
-            microphone_streaming_active = False
+            self._microphone_streaming_active = False
             # Reset auto_playback to default
-            audio_processor["set_auto_playback"](True)
+            self.audio_processor["set_auto_playback"](True)
 
     # Event handler registration methods
-    def on_message(handler: MessageHandler) -> Callable[[], None]:
-        """Register a message handler"""
-        return websocket_client["add_message_handler"](handler)
+    def on_message(self, handler: MessageHandler) -> Callable[[], None]:
+        """Register a message handler."""
+        return self.websocket_client["add_message_handler"](handler)
 
-    def on_connection_change(handler: ConnectionHandler) -> Callable[[], None]:
-        """Register a connection state change handler"""
-        return websocket_client["add_connection_handler"](handler)
+    def on_connection_change(self, handler: ConnectionHandler) -> Callable[[], None]:
+        """Register a connection state change handler."""
+        return self.websocket_client["add_connection_handler"](handler)
 
-    def on_error(handler: ErrorHandler) -> Callable[[], None]:
-        """Register an error handler"""
-        return websocket_client["add_error_handler"](handler)
+    def on_error(self, handler: ErrorHandler) -> Callable[[], None]:
+        """Register an error handler."""
+        return self.websocket_client["add_error_handler"](handler)
 
-    def on_audio_data(handler: AudioDataHandler) -> Callable[[], None]:
-        """Register an audio data handler"""
-        return audio_processor["add_audio_data_handler"](handler)
+    def on_audio_data(self, handler: AudioDataHandler) -> Callable[[], None]:
+        """Register an audio data handler."""
+        return self.audio_processor["add_audio_data_handler"](handler)
 
-    # Property getters
-    def get_connection_state() -> ConnectionState:
-        """Get the current connection state"""
-        return websocket_client["get_connection_state"]()
+    # Properties (using @property for better Python idioms)
+    @property
+    def connection_state(self) -> ConnectionState:
+        """Get the current connection state."""
+        return self.websocket_client["get_connection_state"]()
 
-    def get_is_connected() -> bool:
-        """Check if connected to the WebSocket server"""
-        return websocket_client["get_is_connected"]()
+    @property
+    def is_connected(self) -> bool:
+        """Check if connected to the WebSocket server."""
+        return self.websocket_client["get_is_connected"]()
 
-    def get_is_connecting() -> bool:
-        """Check if connecting or reconnecting to the WebSocket server"""
-        return websocket_client["get_is_connecting"]()
+    @property
+    def is_connecting(self) -> bool:
+        """Check if connecting or reconnecting to the WebSocket server."""
+        return self.websocket_client["get_is_connecting"]()
 
-    def get_recording_state() -> RecordingState:
-        """Get the current recording state"""
-        return audio_processor["get_recording_state"]()
+    @property
+    def recording_state(self) -> RecordingState:
+        """Get the current recording state."""
+        return self.audio_processor["get_recording_state"]()
 
-    def get_is_recording() -> bool:
-        """Check if currently recording"""
-        return audio_processor["get_is_recording"]()
+    @property
+    def is_recording(self) -> bool:
+        """Check if currently recording."""
+        return self.audio_processor["get_is_recording"]()
 
-    def get_playback_state() -> PlaybackState:
-        """Get the current playback state"""
-        return audio_processor["get_playback_state"]()
+    @property
+    def playback_state(self) -> PlaybackState:
+        """Get the current playback state."""
+        return self.audio_processor["get_playback_state"]()
 
-    def get_is_playing() -> bool:
-        """Check if currently playing audio"""
-        return audio_processor["get_is_playing"]()
+    @property
+    def is_playing(self) -> bool:
+        """Check if currently playing audio."""
+        return self.audio_processor["get_is_playing"]()
 
-    def get_audio_queue() -> List[TTSAudioSegment]:
-        """Get the current audio queue"""
-        return audio_processor["get_audio_queue"]()
+    @property
+    def audio_queue(self) -> List[TTSAudioSegment]:
+        """Get the current audio queue."""
+        return self.audio_processor["get_audio_queue"]()
 
-    def get_current_segment() -> Optional[TTSAudioSegment]:
-        """Get the currently playing audio segment"""
-        return audio_processor["get_current_segment"]()
+    @property
+    def current_segment(self) -> Optional[TTSAudioSegment]:
+        """Get the currently playing audio segment."""
+        return self.audio_processor["get_current_segment"]()
 
-    def get_current_amplitude() -> float:
-        """Get the current audio amplitude for visualization"""
-        return audio_processor["get_current_amplitude"]()
+    @property
+    def current_amplitude(self) -> float:
+        """Get the current audio amplitude for visualization."""
+        return self.audio_processor["get_current_amplitude"]()
 
-    def get_token() -> Optional[str]:
-        """Get the current token"""
-        token_info = websocket_client["get_token_info"]()
+    @property
+    def token(self) -> Optional[str]:
+        """Get the current token."""
+        token_info = self.websocket_client["get_token_info"]()
         return token_info[0]
 
-    def get_token_expires_at() -> Optional[float]:
-        """Get the token expiration timestamp"""
-        token_info = websocket_client["get_token_info"]()
+    @property
+    def token_expires_at(self) -> Optional[float]:
+        """Get the token expiration timestamp."""
+        token_info = self.websocket_client["get_token_info"]()
         return token_info[1]
 
-    def set_user_id(user_id: str) -> None:
-        """Set user ID for token generation"""
-        websocket_client["set_user_id"](user_id)
+    def set_user_id(self, user_id: str) -> None:
+        """Set user ID for token generation."""
+        self.websocket_client["set_user_id"](user_id)
 
     # Context manager support
-    async def __aenter__():
-        """Async context manager entry"""
-        await connect()
-        return {
-            "connect": connect,
-            "disconnect": disconnect,
-            "reconnect": reconnect,
-            "start_recording": start_recording,
-            "stop_recording": stop_recording,
-            "play_audio": play_audio,
-            "pause_audio": pause_audio,
-            "stop_audio": stop_audio,
-            "fade_out_audio": fade_out_audio,
-            "clear_queue": clear_queue,
-            "add_to_queue": add_to_queue,
-            "send_message": send_message,
-            "process_audio_queue": process_audio_queue,
-            "on_message": on_message,
-            "on_connection_change": on_connection_change,
-            "on_error": on_error,
-            "on_audio_data": on_audio_data,
-            "get_connection_state": get_connection_state,
-            "get_is_connected": get_is_connected,
-            "get_is_connecting": get_is_connecting,
-            "get_recording_state": get_recording_state,
-            "get_is_recording": get_is_recording,
-            "get_playback_state": get_playback_state,
-            "get_is_playing": get_is_playing,
-            "get_audio_queue": get_audio_queue,
-            "get_current_segment": get_current_segment,
-            "get_current_amplitude": get_current_amplitude,
-            "get_token": get_token,
-            "get_token_expires_at": get_token_expires_at,
-            "set_user_id": set_user_id,
-            "cleanup": cleanup,
-        }
+    async def __aenter__(self):
+        """Async context manager entry."""
+        await self.connect()
+        return self
 
-    async def __aexit__(exc_type, exc_val, exc_tb):
-        """Async context manager exit"""
-        await disconnect()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.disconnect()
 
     # Cleanup
-    def cleanup() -> None:
-        """Clean up resources"""
-        audio_processor["cleanup"]()
+    def cleanup(self) -> None:
+        """Clean up resources."""
+        self.audio_processor["cleanup"]()
         # WebSocket client cleanup is handled by disconnect
 
-    # Auto-connect if configured
-    if config.auto_connect:
-        asyncio.create_task(connect())
 
-    # Return the SDK interface
-    return {
-        "connect": connect,
-        "disconnect": disconnect,
-        "reconnect": reconnect,
-        "start_recording": start_recording,
-        "stop_recording": stop_recording,
-        "play_audio": play_audio,
-        "pause_audio": pause_audio,
-        "stop_audio": stop_audio,
-        "fade_out_audio": fade_out_audio,
-        "clear_queue": clear_queue,
-        "add_to_queue": add_to_queue,
-        "send_message": send_message,
-        "process_audio_queue": process_audio_queue,
-        "stream_audio_file": stream_audio_file,
-        "stream_microphone": stream_microphone,
-        "on_message": on_message,
-        "on_connection_change": on_connection_change,
-        "on_error": on_error,
-        "on_audio_data": on_audio_data,
-        "get_connection_state": get_connection_state,
-        "get_is_connected": get_is_connected,
-        "get_is_connecting": get_is_connecting,
-        "get_recording_state": get_recording_state,
-        "get_is_recording": get_is_recording,
-        "get_playback_state": get_playback_state,
-        "get_is_playing": get_is_playing,
-        "get_audio_queue": get_audio_queue,
-        "get_current_segment": get_current_segment,
-        "get_current_amplitude": get_current_amplitude,
-        "get_token": get_token,
-        "get_token_expires_at": get_token_expires_at,
-        "set_user_id": set_user_id,
-        "cleanup": cleanup,
-        "__aenter__": __aenter__,
-        "__aexit__": __aexit__,
-    }
+# Backward compatibility: create_vocals function that returns a VocalsClient instance
+def create_vocals(
+    config: Optional[VocalsConfig] = None,
+    audio_config: Optional[AudioConfig] = None,
+    user_id: Optional[str] = None,
+    modes: List[str] = [],
+) -> VocalsClient:
+    """
+    Create a Vocals SDK instance for voice processing and real-time audio communication.
+
+    This function provides backward compatibility with the functional approach
+    by returning a VocalsClient instance.
+
+    Args:
+        config: Configuration options for the SDK
+        audio_config: Audio processing configuration
+        user_id: Optional user ID for token generation
+        modes: List of modes to control SDK behavior
+
+    Returns:
+        VocalsClient instance
+    """
+    return VocalsClient(
+        config=config,
+        audio_config=audio_config,
+        user_id=user_id,
+        modes=modes,
+    )

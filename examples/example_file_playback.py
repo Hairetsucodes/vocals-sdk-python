@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Enhanced example script demonstrating file-based audio playback through Vocals SDK.
-This version uses the new SDK abstractions and enhanced text handling for both 
+This version uses the new class-based SDK API and enhanced text handling for both 
 transcription and LLM responses.
 """
 
@@ -15,9 +15,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import Vocals SDK with new utilities
+# Import Vocals SDK with new class-based API
 from vocals import (
-    create_vocals,
+    VocalsClient,
     get_default_config,
     AudioConfig,
     create_default_message_handler,
@@ -42,11 +42,11 @@ async def main():
         config = get_default_config()
         audio_config = AudioConfig(sample_rate=24000, channels=1, format="pcm_f32le")
 
-        # Create SDK instance
-        sdk = create_vocals(config, audio_config)
+        # Create SDK client instance
+        client = VocalsClient(config, audio_config)
 
         # Set up enhanced message handler to beautifully display text
-        remove_message_handler = sdk["on_message"](
+        remove_message_handler = client.on_message(
             create_enhanced_message_handler(
                 verbose=False,
                 show_transcription=True,  # Show transcription text prominently
@@ -55,10 +55,10 @@ async def main():
                 show_detection=False,  # Don't show detection for file playback
             )
         )
-        remove_connection_handler = sdk["on_connection_change"](
+        remove_connection_handler = client.on_connection_change(
             create_default_connection_handler()
         )
-        remove_error_handler = sdk["on_error"](create_default_error_handler())
+        remove_error_handler = client.on_error(create_default_error_handler())
 
         try:
             print("\n" + "=" * 60)
@@ -69,7 +69,7 @@ async def main():
             print("=" * 60)
 
             # Stream the audio file - this handles everything automatically!
-            await sdk["stream_audio_file"](
+            await client.stream_audio_file(
                 file_path=str(AUDIO_FILE),
                 chunk_size=1024,
                 verbose=False,
@@ -87,8 +87,8 @@ async def main():
             remove_error_handler()
 
             # Disconnect and cleanup
-            await sdk["disconnect"]()
-            sdk["cleanup"]()
+            await client.disconnect()
+            client.cleanup()
 
     except KeyboardInterrupt:
         logger.info("👋 Interrupted by user")
@@ -108,8 +108,8 @@ async def conversation_tracking_example():
         config = get_default_config()
         audio_config = AudioConfig(sample_rate=24000, channels=1, format="pcm_f32le")
 
-        # Create SDK instance
-        sdk = create_vocals(config, audio_config)
+        # Create SDK client instance
+        client = VocalsClient(config, audio_config)
 
         # Create conversation tracker
         conversation_tracker = create_conversation_tracker()
@@ -177,11 +177,11 @@ async def conversation_tracking_example():
             except Exception as e:
                 logger.error(f"Error in enhanced tracking handler: {e}")
 
-        remove_message_handler = sdk["on_message"](enhanced_tracking_handler)
-        remove_connection_handler = sdk["on_connection_change"](
+        remove_message_handler = client.on_message(enhanced_tracking_handler)
+        remove_connection_handler = client.on_connection_change(
             create_default_connection_handler()
         )
-        remove_error_handler = sdk["on_error"](create_default_error_handler())
+        remove_error_handler = client.on_error(create_default_error_handler())
 
         try:
             print("\n" + "=" * 60)
@@ -192,7 +192,7 @@ async def conversation_tracking_example():
             print("=" * 60)
 
             # Stream the audio file
-            await sdk["stream_audio_file"](str(AUDIO_FILE))
+            await client.stream_audio_file(str(AUDIO_FILE))
 
             # Print conversation history
             conversation_tracker["print_conversation"]()
@@ -208,8 +208,8 @@ async def conversation_tracking_example():
             remove_error_handler()
 
             # Cleanup SDK
-            await sdk["disconnect"]()
-            sdk["cleanup"]()
+            await client.disconnect()
+            client.cleanup()
 
     except KeyboardInterrupt:
         logger.info("👋 Interrupted by user")
@@ -225,9 +225,9 @@ async def minimal_example():
     try:
         logger.info("🎵 Starting Minimal Example")
 
-        # Create SDK and stream file in one go
-        sdk = create_vocals()
-        await sdk["stream_audio_file"](str(AUDIO_FILE))
+        # Create SDK client and stream file in one go
+        client = VocalsClient()
+        await client.stream_audio_file(str(AUDIO_FILE))
 
         logger.info("🎉 Minimal example completed!")
 
@@ -236,13 +236,45 @@ async def minimal_example():
         raise
 
 
+async def context_manager_example():
+    """
+    Example showing the new async context manager support.
+    """
+    try:
+        logger.info("🎵 Starting Context Manager Example")
+
+        # Use the new async context manager
+        async with VocalsClient() as client:
+            print("\n" + "=" * 60)
+            print("🎵 CONTEXT MANAGER FILE PLAYBACK")
+            print("=" * 60)
+            print("This example uses the new async context manager!")
+            print("The client will automatically connect and disconnect.")
+            print("=" * 60)
+
+            # Stream the audio file - connection and cleanup handled automatically
+            await client.stream_audio_file(
+                file_path=str(AUDIO_FILE),
+                chunk_size=1024,
+                verbose=False,
+                auto_connect=False,  # Already connected by context manager
+            )
+
+        logger.info("🎉 Context manager example completed!")
+
+    except Exception as e:
+        logger.error(f"Error in context manager example: {e}")
+        raise
+
+
 if __name__ == "__main__":
     print("Choose an example:")
     print("1. Enhanced file playback with text display")
     print("2. Conversation tracking example")
     print("3. Minimal example")
+    print("4. Context manager example")
 
-    choice = input("Enter choice (1-3): ").strip()
+    choice = input("Enter choice (1-4): ").strip()
 
     if choice == "1":
         asyncio.run(main())
@@ -250,6 +282,8 @@ if __name__ == "__main__":
         asyncio.run(conversation_tracking_example())
     elif choice == "3":
         asyncio.run(minimal_example())
+    elif choice == "4":
+        asyncio.run(context_manager_example())
     else:
         print("Invalid choice, running enhanced example")
         asyncio.run(main())
